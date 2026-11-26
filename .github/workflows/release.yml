@@ -1,0 +1,190 @@
+name: release
+
+# Setelah merge ke main: build APK signed, verifikasi tanda tangan, lalu
+# tag annotated vX.Y.Z + GitHub Release berisi nyatet-vX.Y.Z.apk.
+# Tag hanya dibuat bila versi di pubspec.yaml benar-benar bertambah dibanding tag terakhir,
+# dan hanya setelah build + verifikasi tanda tangan berhasil.
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: rilis
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Baca versi & cek tag terakhir
+        id: ver
+        run: |
+          set -euo pipefail
+          VERSION=$(sed -n 's/^version:[[:space:]]*//p' pubspec.yaml | head -1 | tr -d ' ')
+          NAME=${VERSION%%+*}
+          BUILD=${VERSION##*+}
+          echo "pubspec version: $VERSION (versionName $NAME, versionCode $BUILD)"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "build=$BUILD" >> "$GITHUB_OUTPUT"
+
+          git fetch --tags --force -q
+          LAST=$(git tag --list 'v*' --sort=-v:refname | head -1 || true)
+          echo "tag terakhir: ${LAST:-<belum ada>}"
+
+          if [ -n "$LAST" ] && [ "v$NAME" = "$LAST" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "v$NAME sudah dirilis — tidak ada tag/Release baru."
+            exit 0
+          fi
+
+          if [ -n "$LAST" ]; then
+            LAST_NAME=${LAST#v}
+            HIGHEST=$(printf '%s\n%s\n' "$LAST_NAME" "$NAME" | sort -V | tail -1)
+            if [ "$HIGHEST" != "$NAME" ] || [ "$HIGHEST" = "$LAST_NAME" ]; then
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              echo "versi $NAME tidak lebih tinggi dari $LAST_NAME — dilewati."
+              exit 0
+            fi
+          fi
+
+          if git rev-parse -q --verify "refs/tags/v$NAME" >/dev/null; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "tag v$NAME sudah ada — dilewati."
+            exit 0
+          fi
+
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+          echo "akan merilis v$NAME"
+
+      - name: Java 21
+        if: steps.ver.outputs.skip != 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Flutter 3.50.1
+        if: steps.ver.outputs.skip != 'true'
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.50.1"
+          channel: stable
+          cache: true
+
+      - name: Siapkan keystore rilis
+        if: steps.ver.outputs.skip != 'true'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${KEYSTORE_BASE64:-}" ] || [ -z "${KEYSTORE_PASSWORD:-}" ] || [ -z "${KEY_ALIAS:-}" ]; then
+            echo "::error::Secret keystore belum lengkap (KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD). Build rilis tidak dijalankan dan tidak ada tag/Release."
+            exit 1
+          fi
+          KC="$RUNNER_TEMP/nyatet-release.jks"
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$KC"
+          chmod 600 "$KC"
+          {
+            echo "storePassword=$KEYSTORE_PASSWORD"
+            echo "keyPassword=${KEY_PASSWORD:-$KEYSTORE_PASSWORD}"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "storeFile=$KC"
+          } > android/key.properties
+          chmod 600 android/key.properties
+          git check-ignore -q android/key.properties && echo "key.properties diabaikan git: ok"
+
+      - name: Dependensi
+        if: steps.ver.outputs.skip != 'true'
+        run: flutter pub get
+
+      - name: Build APK rilis (signed)
+        if: steps.ver.outputs.skip != 'true'
+        run: flutter build apk --release
+
+      - name: Beri nama artefak & hitung SHA-256
+        if: steps.ver.outputs.skip != 'true'
+        env:
+          NAME: ${{ steps.ver.outputs.name }}
+        run: |
+          set -euo pipefail
+          SRC=build/app/outputs/flutter-apk/app-release.apk
+          OUT="nyatet-v$NAME.apk"
+          cp "$SRC" "$OUT"
+          sha256sum "$OUT" | tee sha256.txt
+          ls -l "$OUT"
+
+      - name: Verifikasi tanda tangan rilis
+        if: steps.ver.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -1)
+          if [ -z "$APKSIGNER" ]; then echo "::error::apksigner tidak ditemukan"; exit 1; fi
+          "$APKSIGNER" verify --print-certs build/app/outputs/flutter-apk/app-release.apk | tee certs.txt
+          if grep -qi "CN=Android Debug" certs.txt; then
+            echo "::error::APK ditandatangani kunci debug — rilis dibatalkan."
+            exit 1
+          fi
+          echo "Sidik sertifikat:" >> "$GITHUB_STEP_SUMMARY"
+          grep -i "SHA-256" certs.txt >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Susun catatan rilis
+        if: steps.ver.outputs.skip != 'true'
+        env:
+          NAME: ${{ steps.ver.outputs.name }}
+          VERSION: ${{ steps.ver.outputs.version }}
+          BUILD: ${{ steps.ver.outputs.build }}
+        run: |
+          set -euo pipefail
+          CHANGELOG=$(awk '/^## /{c++} c==1' CHANGELOG.md)
+          if [ -z "$CHANGELOG" ]; then CHANGELOG=$(printf '## v%s\n\nTidak ada catatan di CHANGELOG.md.' "$NAME"); fi
+          {
+            echo "$CHANGELOG"
+            echo
+            echo "---"
+            echo
+            echo "- versionName: \`$NAME\`"
+            echo "- versionCode: \`$BUILD\`"
+            echo "- APK: \`nyatet-v$NAME.apk\`"
+            echo "- SHA-256: \`$(cut -d' ' -f1 sha256.txt)\`"
+            echo "- Tanda tangan: keystore rilis Nyatet (bukan debug)"
+            echo
+            echo "Sidik sertifikat APK:"
+            echo '```'
+            grep -i "certificate SHA-256 digest" certs.txt || true
+            echo '```'
+          } > notes.md
+          cat notes.md
+
+      - name: Buat tag annotated + GitHub Release
+        if: steps.ver.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NAME: ${{ steps.ver.outputs.name }}
+          BUILD: ${{ steps.ver.outputs.build }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "v$NAME" -m "Nyatet v$NAME (versionCode $BUILD)"
+          git push origin "v$NAME"
+          gh release create "v$NAME" "nyatet-v$NAME.apk" \
+            --title "Nyatet v$NAME" \
+            --notes-file notes.md \
+            --verify-tag

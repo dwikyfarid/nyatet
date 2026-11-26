@@ -53,3 +53,12 @@ android/local.properties
 android/key.properties
 *.jks
 *.keystore
+
+# Rilis: kredensial & artefak tanda tangan tidak boleh masuk repo
+android/key.properties
+*.jks
+*.keystore
+*.p12
+key.properties
+google-services.json
+android/app/google-services.json

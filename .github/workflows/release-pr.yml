@@ -1,0 +1,74 @@
+name: release-pr
+
+# Setiap branch (selain main) yang menaikkan nilai `version:` di pubspec.yaml
+# otomatis dibuatkan PR "release: vX.Y.Z+build" dan di-auto-merge (squash)
+# hanya bila check `ci` hijau.
+
+on:
+  push:
+    branches-ignore:
+      - main
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: release-pr-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  propose:
+    name: usul-rilis
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Bandingkan versi dengan main
+        id: v
+        run: |
+          set -euo pipefail
+          NEW=$(sed -n 's/^version:[[:space:]]*//p' pubspec.yaml | head -1 | tr -d ' ')
+          git fetch -q origin main
+          OLD=$(git show origin/main:pubspec.yaml | sed -n 's/^version:[[:space:]]*//p' | head -1 | tr -d ' ')
+          echo "versi branch: $NEW | versi main: $OLD"
+          if [ -z "$NEW" ]; then echo "pubspec.yaml tanpa baris version:" >&2; exit 1; fi
+          if [ "$NEW" = "$OLD" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "new=$NEW" >> "$GITHUB_OUTPUT"
+            echo "old=$OLD" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Buat PR rilis + auto-merge
+        if: steps.v.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ github.ref_name }}
+          NEW: ${{ steps.v.outputs.new }}
+          OLD: ${{ steps.v.outputs.old }}
+        run: |
+          set -euo pipefail
+          TITLE="release: v$NEW"
+          PR=$(gh pr list --head "$BRANCH" --base main --state open --json number --jq '.[0].number // empty')
+          if [ -z "$PR" ]; then
+            gh pr create --base main --head "$BRANCH" --title "$TITLE" --body "$(cat <<BODY
+          PR otomatis dari branch \`$BRANCH\`.
+
+          - versi main: \`$OLD\`
+          - versi branch: \`$NEW\`
+
+          Merge (squash) hanya berjalan bila check \`ci\` hijau. Setelah merge, workflow \`release\`
+          membuat tag annotated \`v${NEW%%+*}\` dan GitHub Release berisi APK signed.
+          BODY
+            )"
+            PR=$(gh pr list --head "$BRANCH" --base main --state open --json number --jq '.[0].number // empty')
+          fi
+          if [ -z "$PR" ]; then echo "PR tidak terbentuk" >&2; exit 1; fi
+          gh pr merge "$PR" --squash --auto
+          echo "PR #$PR: auto-merge diaktifkan (menunggu check ci)"
