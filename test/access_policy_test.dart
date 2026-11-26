@@ -6,12 +6,13 @@ Transaction _txn({
   String id = 't1',
   String memberEmail = 'anak@example.com',
   DateTime? createdAt,
+  String type = TransactionType.outFlow,
 }) {
   final created = createdAt ?? DateTime.utc(2026, 11, 20);
   return Transaction(
     id: id,
     date: created,
-    type: 'out',
+    type: type,
     amount: 10000,
     categoryId: null,
     account: '',
@@ -99,5 +100,41 @@ void main() {
       expect(policy.canManageGoals().allowed, isFalse);
       expect(policy.canDepositToGoal().allowed, isTrue);
     });
+  });
+
+  test('D-23: anggota tidak bisa mengedit/menghapus setoran atau penarikan tujuan',
+      () {
+    final policy = AccessPolicy(
+      email: 'anak@example.com',
+      role: MemberRole.member,
+      now: DateTime.utc(2026, 11, 20),
+    );
+    final deposit = _txn(type: TransactionType.goalDeposit);
+    final withdrawal = _txn(type: TransactionType.goalWithdrawal);
+
+    for (final txn in [deposit, withdrawal]) {
+      final edit = policy.canEdit(txn);
+      expect(edit.allowed, isFalse);
+      expect(edit.reason, 'Setoran tujuan hanya bisa dikoreksi admin.');
+
+      final delete = policy.canDelete(txn);
+      expect(delete.allowed, isFalse);
+      expect(
+        delete.reason,
+        'Setoran tujuan hanya bisa dikoreksi admin.',
+        reason: 'bukan pesan umum "tidak bisa menghapus"',
+      );
+    }
+  });
+
+  test('D-23: admin tetap bisa mengoreksi setoran/penarikan tujuan', () {
+    final admin = AccessPolicy(
+      email: 'bapak@example.com',
+      role: MemberRole.admin,
+      now: DateTime.utc(2026, 11, 20),
+    );
+    final deposit = _txn(type: TransactionType.goalDeposit);
+    expect(admin.canEdit(deposit).allowed, isTrue);
+    expect(admin.canDelete(deposit).allowed, isTrue);
   });
 }

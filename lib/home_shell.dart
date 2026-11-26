@@ -35,7 +35,10 @@ class HomeShell extends ConsumerWidget {
           GoalsScreen(),
         ],
       ),
-      floatingActionButton: index == 1
+      // D-18/F8: aksi utama "Catat" harus terlihat dari beranda, bukan hanya
+      // dari tab Transaksi (≤2 ketuk dari beranda). FAB adalah overlay,
+      // tidak menambah tinggi isi beranda.
+      floatingActionButton: index <= 1
           ? FloatingActionButton.extended(
               onPressed: () => openQuickAdd(context),
               icon: const Icon(Icons.add),

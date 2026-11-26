@@ -54,7 +54,9 @@ class CockpitScreen extends ConsumerWidget {
           ref.invalidate(allocationRowsProvider);
         },
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+          // 88 = tinggi FAB (56) + margin (16) + 16: cukup agar kartu terakhir
+          // tidak tertutup FAB, tanpa menambah tinggi isi sampai perlu digulir.
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
           children: [
             summary.when(
               loading: () => const _SkeletonCard(),
