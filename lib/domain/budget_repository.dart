@@ -41,13 +41,14 @@ class CategoryBudgetStatus {
   }
 
   /// Selalu teks persen + panah (UX-01: warna tidak boleh jadi satu-satunya
-  /// penanda). ▲ = mendekati/melewati batas, ▼ = masih jauh di bawah.
+  /// penanda). D-11 mengunci arti panah: ▲ = masuk, ▼ = keluar. Baris budget
+  /// adalah kategori pengeluaran, jadi panahnya selalu ▼; tingkat bahaya
+  /// ditulis sebagai teks ("mendekati batas"/"melewati batas") + warna.
   String get percentLabel {
     if (!isExpense) return 'tanpa budget';
     if (!hasBudget) return 'belum ada budget';
     final pct = (ratio * 100).round();
-    final arrow = level == BudgetLevel.aman ? '▼' : '▲';
-    return '$pct% $arrow';
+    return '$pct% ▼';
   }
 
   String get levelLabel => !isExpense

@@ -83,13 +83,15 @@ void main() {
     await spend(50000); // 80%
     s = await statusOf('Makan');
     expect(s.level, BudgetLevel.waspada);
-    expect(s.percentLabel, '80% ▲');
+    expect(s.percentLabel, '80% ▼');
 
     await spend(250000); // 105%
     s = await statusOf('Makan');
     expect(s.level, BudgetLevel.lewat);
-    expect(s.percentLabel, '105% ▲');
+    expect(s.percentLabel, '105% ▼');
     expect(s.levelLabel, 'melewati batas');
+    // D-11: panah tidak boleh berarti "mendekati batas" — ▲ khusus masuk.
+    expect(s.percentLabel.contains('▲'), isFalse);
   });
 
   test('F7/D-17: setoran tujuan tidak memakan budget', () async {
