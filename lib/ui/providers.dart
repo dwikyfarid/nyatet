@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart' show OrderingTerm;
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
@@ -10,6 +11,10 @@ import '../domain/allocation_repository.dart';
 import '../domain/budget_repository.dart';
 import '../domain/report_service.dart';
 import '../domain/transaction_service.dart';
+import '../update/apk_bridge.dart';
+import '../update/github_api.dart';
+import '../update/update_models.dart';
+import '../update/update_service.dart';
 
 /// Database tunggal selama aplikasi hidup.
 final databaseProvider = Provider<AppDatabase>((ref) {
@@ -156,3 +161,34 @@ final goalsProvider = FutureProvider<List<GoalProgress>>((ref) {
   final repo = ref.watch(allocationRepositoryProvider);
   return repo.goalsWithProgress(ref.watch(accessPolicyProvider));
 });
+
+
+// ---------------------------------------------------------------------------
+// REL-03/REL-04 — cek update hanya untuk build sideload. Build `play`
+// meng-override [updateEnabledProvider] menjadi false dan tidak pernah
+// membaca [updateServiceProvider], jadi tidak ada permintaan ke api.github.com.
+// ---------------------------------------------------------------------------
+
+final updateEnabledProvider = Provider<bool>((ref) => true);
+
+Future<InstalledVersion> _installedVersion() async {
+  final info = await PackageInfo.fromPlatform();
+  return InstalledVersion(
+    versionName: info.version,
+    versionCode: int.tryParse(info.buildNumber) ?? 0,
+  );
+}
+
+final installedVersionProvider = FutureProvider<InstalledVersion>(
+  (ref) => _installedVersion(),
+);
+
+final updateServiceProvider = Provider<UpdateService>(
+  (ref) => UpdateService(
+    api: GitHubUpdateApi(),
+    bridge: const MethodChannelApkBridge(),
+    installedVersion: _installedVersion,
+    store: PrefsUpdateStore(),
+    network: const ConnectivityProbe(),
+  ),
+);

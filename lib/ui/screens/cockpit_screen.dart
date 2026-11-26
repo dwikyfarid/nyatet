@@ -9,6 +9,7 @@ import '../format.dart';
 import '../../home_shell.dart';
 import '../providers.dart';
 import 'draft_queue_screen.dart';
+import 'settings_screen.dart';
 import 'drilldown_screen.dart';
 
 /// L2 — Beranda cockpit (F8): 4 keranjang D-17, alokasi teratas, tujuan,
@@ -33,6 +34,15 @@ class CockpitScreen extends ConsumerWidget {
             avatar: const Icon(Icons.calendar_month, size: 18),
             label: Text(monthLabel(month)),
             onPressed: () => _pickMonth(context, ref),
+          ),
+          IconButton(
+            tooltip: 'Pengaturan',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const SettingsScreen(),
+              ),
+            ),
+            icon: const Icon(Icons.settings_outlined),
           ),
           const DevMenu(),
         ],
