@@ -115,6 +115,7 @@ void main() {
     for (final txn in [deposit, withdrawal]) {
       final edit = policy.canEdit(txn);
       expect(edit.allowed, isFalse);
+
       expect(edit.reason, 'Setoran tujuan hanya bisa dikoreksi admin.');
 
       final delete = policy.canDelete(txn);

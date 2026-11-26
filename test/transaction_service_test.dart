@@ -204,4 +204,108 @@ void main() {
       throwsA(isA<AccessDenied>()),
     );
   });
+
+  test('D-23: anggota boleh membuat setoran tujuan, tidak boleh mengubah/menghapus',
+      () async {
+    await db.into(db.goals).insert(
+          GoalsCompanion.insert(
+            id: 'goal-d23',
+            name: 'Dana Sekolah',
+            targetAmount: 5000000,
+            monthlyAllocation: 500000,
+            updatedAt: DateTime.now().toUtc(),
+          ),
+        );
+
+    // 1) Anggota BOLEH membuat setoran tujuan (D-20).
+    final depositId = await repo.create(
+      date: DateTime.now(),
+      type: TransactionType.goalDeposit,
+      amount: 500000,
+      memberEmail: anak.email,
+      source: TransactionSource.manual,
+      goalId: 'goal-d23',
+    );
+    final deposit = await db.transactionById(depositId);
+    expect(deposit!.amount, 500000);
+
+    // 2) Anggota TIDAK boleh mengubahnya (D-23), dengan pesan yang benar.
+    await expectLater(
+      service.updateManual(
+        policy: anak,
+        txn: deposit,
+        date: deposit.date,
+        type: deposit.type,
+        amount: 50000,
+      ),
+      throwsA(
+        isA<AccessDenied>().having(
+          (e) => e.reason,
+          'reason',
+          'Setoran tujuan hanya bisa dikoreksi admin.',
+        ),
+      ),
+    );
+    expect((await db.transactionById(depositId))!.amount, 500000);
+
+    // 3) Anggota TIDAK boleh menghapusnya, alasannya bukan pesan role generik.
+    await expectLater(
+      service.delete(policy: anak, txn: deposit),
+      throwsA(
+        isA<AccessDenied>().having(
+          (e) => e.reason,
+          'reason',
+          'Setoran tujuan hanya bisa dikoreksi admin.',
+        ),
+      ),
+    );
+
+    // 4) Admin BOLEH mengoreksi setoran yang sama.
+    await service.updateManual(
+      policy: admin,
+      txn: deposit,
+      date: deposit.date,
+      type: deposit.type,
+      amount: 450000,
+    );
+    expect((await db.transactionById(depositId))!.amount, 450000);
+  });
+
+  test('D-23: anggota juga tidak bisa mengoreksi penarikan tujuan', () async {
+    await db.into(db.goals).insert(
+          GoalsCompanion.insert(
+            id: 'goal-d23-w',
+            name: 'Dana Darurat',
+            targetAmount: 5000000,
+            monthlyAllocation: 500000,
+            updatedAt: DateTime.now().toUtc(),
+          ),
+        );
+    final withdrawalId = await repo.create(
+      date: DateTime.now(),
+      type: TransactionType.goalWithdrawal,
+      amount: 100000,
+      memberEmail: admin.email,
+      source: TransactionSource.manual,
+      goalId: 'goal-d23-w',
+    );
+    final withdrawal = await db.transactionById(withdrawalId);
+
+    await expectLater(
+      service.updateManual(
+        policy: anak,
+        txn: withdrawal!,
+        date: withdrawal.date,
+        type: withdrawal.type,
+        amount: 1,
+      ),
+      throwsA(
+        isA<AccessDenied>().having(
+          (e) => e.reason,
+          'reason',
+          'Setoran tujuan hanya bisa dikoreksi admin.',
+        ),
+      ),
+    );
+  });
 }
