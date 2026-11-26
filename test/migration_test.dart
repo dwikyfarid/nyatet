@@ -90,6 +90,17 @@ void main() {
       ''');
     }
 
+    final memberCols = version < 3
+        ? '(email, name, role, status, joined_at)'
+        : '(email, name, role, status, joined_at, updated_at)';
+    db.execute(
+      version < 3
+          ? 'INSERT INTO members $memberCols '
+              "VALUES ('ibu@example.com','Ibu','member','active',1700000000)"
+          : 'INSERT INTO members $memberCols '
+              "VALUES ('ibu@example.com','Ibu','member','active',1700000000,1700000000)",
+    );
+
     final catCols = version < 3 ? '(id, name, type)' : '(id, name, type, updated_at)';
     final catVals = version < 3
         ? "('cat_makan','Makan','out')"
@@ -124,7 +135,7 @@ void main() {
     db.close();
   }
 
-  Future<void> expectMigrated(String path) async {
+  Future<void> expectMigrated(String path, {required int fromVersion}) async {
     final db = AppDatabase(NativeDatabase(File(path)));
     addTearDown(db.close);
 
@@ -156,8 +167,42 @@ void main() {
         .then((rows) => rows.map((r) => r.read<String>('name')).toSet());
     expect(parserColumns, containsAll(['app_name', 'is_active', 'updated_at']));
 
+    // Anggota lama ikut selamat, dan kolom updated_at hasil migrasi terisi.
+    final members = await db.select(db.members).get();
+    expect(members.single.email, 'ibu@example.com');
+    expect(members.single.updatedAt, isNotNull);
+
+    // D-32: kolom updated_at lama tidak boleh NULL setelah migrasi — NULL di
+    // sini membuat mapping drift crash dan itulah bug upgrade yang dilaporkan.
+    for (final table in ['members', 'categories', 'budgets', 'config_parsers']) {
+      final nulls = await db
+          .customSelect(
+            'SELECT COUNT(*) AS c FROM $table WHERE updated_at IS NULL',
+          )
+          .getSingle();
+      expect(
+        nulls.read<int>('c'),
+        0,
+        reason: '$table.updated_at harus terisi setelah migrasi',
+      );
+    }
+
+    // Nilainya wajar (bukan 0 / epoch), karena backfill memakai waktu migrasi.
+    final stamp = await db
+        .customSelect(
+          "SELECT CAST(strftime('%s','now') AS INTEGER) - updated_at AS age "
+          'FROM categories LIMIT 1',
+        )
+        .getSingle();
+    final ageSeconds = stamp.read<int>('age');
+    expect(ageSeconds, greaterThanOrEqualTo(0));
+    if (fromVersion < 3) {
+      // Hanya baris yang tadinya NULL (jalur v2) yang di-backfill dengan
+      // waktu migrasi; baris v3 sudah punya nilai sendiri.
+      expect(ageSeconds, lessThan(3600), reason: 'backfill = waktu migrasi');
+    }
+
     // Tabel baru tetap bisa dipakai setelah migrasi.
-    expect(await db.select(db.members).get(), isEmpty);
     await db.into(db.goals).insert(
           GoalsCompanion.insert(
             id: 'g2',
@@ -172,13 +217,13 @@ void main() {
   test('upgrade v2 → v4 tidak crash dan data tujuan/budget terjaga', () async {
     final file = File('${dir.path}/v2.sqlite');
     createOldSchema(file.path, version: 2);
-    await expectMigrated(file.path);
+    await expectMigrated(file.path, fromVersion: 2);
   });
 
   test('upgrade v3 → v4 membuang created_at tanpa kehilangan data', () async {
     final file = File('${dir.path}/v3.sqlite');
     createOldSchema(file.path, version: 3);
-    await expectMigrated(file.path);
+    await expectMigrated(file.path, fromVersion: 3);
   });
 
   test('D-36: mapper goal stabil dan tidak punya created_at', () {
