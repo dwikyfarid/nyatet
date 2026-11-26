@@ -176,6 +176,7 @@ class DevSeeder {
               status: 'active',
               joinedAt: now,
               id: Value(const Uuid().v4()),
+              updatedAt: Value(now),
             ),
           );
     }

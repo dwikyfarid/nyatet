@@ -259,19 +259,43 @@ class AppDatabase extends _$AppDatabase {
           if (from < 3) {
             // D-22: kolom penanda delta + enum budget + bentuk goals Sheet.
             await m.addColumn(members, members.id);
-            await m.addColumn(members, members.updatedAt);
-            await m.addColumn(categories, categories.updatedAt);
-            await m.addColumn(budgets, budgets.updatedAt);
             await m.addColumn(configParsers, configParsers.appName);
             await m.addColumn(configParsers, configParsers.isActive);
-            await m.addColumn(configParsers, configParsers.updatedAt);
-            await customStatement(
-              "UPDATE budgets SET type = 'alokasi' WHERE type = 'allocation'",
-            );
-            await customStatement(
-              "UPDATE budgets SET type = 'budget' WHERE type = 'limit'",
-            );
+            // `updated_at` TIDAK ditambahkan lewat addColumn: drift memakai
+            // default `currentDateAndTime` (ekspresi), dan SQLite menolak
+            // "Cannot add a column with non-constant default" — inilah crash
+            // upgrade. Tambahkan sebagai kolom biasa lalu isi ulang.
+            for (final table in [
+              'members',
+              'categories',
+              'budgets',
+              'config_parsers',
+            ]) {
+              await customStatement(
+                'ALTER TABLE $table ADD COLUMN updated_at INTEGER',
+              );
+            }
+            // Baris lama berisi NULL setelah ADD COLUMN; mapping drift akan
+            // crash kalau tidak diisi (D-32).
+            for (final table in [
+              'members',
+              'categories',
+              'budgets',
+              'config_parsers',
+            ]) {
+              await customStatement(
+                'UPDATE $table SET updated_at = CAST(strftime(\'%s\', \'now\') '
+                'AS INTEGER) WHERE updated_at IS NULL',
+              );
+            }
           }
+          // Idempoten: berlaku untuk semua jalur upgrade (v2 maupun v3).
+          await customStatement(
+            "UPDATE budgets SET type = 'alokasi' WHERE type = 'allocation'",
+          );
+          await customStatement(
+            "UPDATE budgets SET type = 'budget' WHERE type = 'limit'",
+          );
           // v2: goals.target_date + category_id; v3: due_date + status +
           // created_at; v4: tanpa created_at (D-36). Dibangun ulang dengan SQL
           // eksplisit supaya migrasi tidak bergantung pada kolom lama yang
@@ -342,6 +366,8 @@ class AppDatabase extends _$AppDatabase {
           id: const Uuid().v4(),
           name: c[0],
           type: c[1],
+          // Eksplisit: kolom hasil upgrade tidak punya default SQL (D-32).
+          updatedAt: Value(DateTime.now().toUtc()),
         ),
       );
     }
