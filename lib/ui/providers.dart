@@ -10,6 +10,10 @@ import '../domain/access_policy.dart';
 import '../domain/allocation_repository.dart';
 import '../domain/budget_repository.dart';
 import '../domain/report_service.dart';
+import '../auth/apps_script_api.dart';
+import '../auth/auth_config.dart';
+import '../auth/auth_flow.dart';
+import '../auth/auth_gateway.dart';
 import '../domain/transaction_service.dart';
 import '../update/apk_bridge.dart';
 import '../update/github_api.dart';
@@ -192,3 +196,28 @@ final updateServiceProvider = Provider<UpdateService>(
     network: const ConnectivityProbe(),
   ),
 );
+
+
+// ---------------------------------------------------------------------------
+// F1 — login Google + setup keluarga
+// ---------------------------------------------------------------------------
+
+final authConfigProvider = Provider<AuthConfig>((ref) => const AuthConfig());
+
+final authFlowProvider = ChangeNotifierProvider<AuthFlow>((ref) {
+  final config = ref.watch(authConfigProvider);
+  final flow = AuthFlow(
+    config: config,
+    api: AppsScriptApi(baseUrl: config.scriptUrl),
+    gateway: GoogleAuthGateway(clientId: config.clientId),
+    stubGateway: const StubAuthGateway(),
+    pendingDrafts: () async {
+      final db = ref.read(databaseProvider);
+      final rows = await (db.select(db.transactionDrafts)
+            ..where((d) => d.status.equals(DraftStatus.pending)))
+          .get();
+      return rows.length;
+    },
+  );
+  return flow;
+});

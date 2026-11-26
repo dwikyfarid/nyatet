@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 
 import 'data/sync/sync_scheduler.dart';
 import 'home_shell.dart';
+import 'ui/auth_gate.dart';
 import 'ui/providers.dart';
 import 'ui/widgets/update_dialog.dart';
 
@@ -93,7 +94,7 @@ class _NyatetAppState extends ConsumerState<NyatetApp> {
         colorSchemeSeed: const Color(0xFF1B5FB0),
         useMaterial3: true,
       ),
-      home: const _Shell(),
+      home: const AuthGate(child: _Shell()),
     );
   }
 }
