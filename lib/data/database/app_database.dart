@@ -63,11 +63,15 @@ class Transactions extends Table {
 
 @DataClassName('Member')
 class Members extends Table {
+  /// Id baris di Sheet — dibutuhkan `member.setRole` / `member.remove`.
+  /// Kunci lokal tetap `email` supaya sesi bisa dipakai sebelum sinkron.
+  TextColumn get id => text().nullable()();
   TextColumn get email => text()();
   TextColumn get name => text()();
   TextColumn get role => text()(); // admin | member
   TextColumn get status => text()(); // active | invited | removed
   DateTimeColumn get joinedAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 
   @override
   Set<Column> get primaryKey => {email};
@@ -80,15 +84,18 @@ class Categories extends Table {
   TextColumn get type => text()(); // in | out
   TextColumn get icon => text().withDefault(const Constant(''))();
   BoolColumn get isActive => boolean().withDefault(const Constant(true))();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 
   @override
   Set<Column> get primaryKey => {id};
 }
 
 /// Nilai sah kolom `type` pada [Budgets]: rencana (alokasi) vs batas.
+/// Nilai disamakan dengan tab Sheet (`alokasi` / `budget`) supaya payload
+/// sinkron bisa dikirim apa adanya (D-22).
 abstract final class BudgetType {
-  static const String allocation = 'allocation';
-  static const String limit = 'limit';
+  static const String allocation = 'alokasi';
+  static const String limit = 'budget';
 }
 
 /// Alokasi dan batas per kategori per bulan (F7 + F10).
@@ -99,10 +106,11 @@ class Budgets extends Table {
   TextColumn get id => text()();
   TextColumn get month => text()(); // YYYY-MM
   TextColumn get categoryId => text()();
-  /// 'allocation' | 'limit'
-  TextColumn get type => text().withDefault(const Constant('limit'))();
+  /// 'alokasi' | 'budget'
+  TextColumn get type => text().withDefault(const Constant('budget'))();
   RealColumn get limitAmount => real().withDefault(const Constant(0))();
   RealColumn get allocatedAmount => real().withDefault(const Constant(0))();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -114,9 +122,11 @@ class Goals extends Table {
   TextColumn get id => text()();
   TextColumn get name => text()();
   RealColumn get targetAmount => real()();
-  DateTimeColumn get targetDate => dateTime().nullable()();
+  /// `due_date` di Sheet. Tujuan tidak terikat kategori (D-22/P5).
+  DateTimeColumn get dueDate => dateTime().nullable()();
   RealColumn get monthlyAllocation => real()();
-  TextColumn get categoryId => text().nullable()();
+  /// `active` | `done` — status manual dari Sheet.
+  TextColumn get status => text().withDefault(const Constant('active'))();
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
@@ -130,9 +140,15 @@ class ConfigParsers extends Table {
   TextColumn get id => text()();
   TextColumn get packageName => text()();
   TextColumn get bankGroup => text().withDefault(const Constant(''))();
-  TextColumn get pattern => text()();
+  /// Label aplikasi untuk antrean draf (mis. "myBCA").
+  TextColumn get appName => text().withDefault(const Constant(''))();
+  /// Boleh kosong di Sheet untuk parser yang belum punya contoh; baris
+  /// seperti itu diabaikan saat dipakai (D-22/F12).
+  TextColumn get pattern => text().nullable()();
   TextColumn get fieldMap => text()();
   IntColumn get version => integer().withDefault(const Constant(1))();
+  BoolColumn get isActive => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -232,13 +248,41 @@ class AppDatabase extends _$AppDatabase {
   factory AppDatabase.memory() => AppDatabase(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (m) => m.createAll(),
         onUpgrade: (m, from, to) async {
           if (from < 2) await m.createTable(transactionDrafts);
+          if (from < 3) {
+            // D-22: kolom penanda delta + enum budget + bentuk goals Sheet.
+            await m.addColumn(members, members.id);
+            await m.addColumn(members, members.updatedAt);
+            await m.addColumn(categories, categories.updatedAt);
+            await m.addColumn(budgets, budgets.updatedAt);
+            await m.addColumn(configParsers, configParsers.appName);
+            await m.addColumn(configParsers, configParsers.isActive);
+            await m.addColumn(configParsers, configParsers.updatedAt);
+            // goals: target_date -> due_date, + status, - category_id.
+            await m.alterTable(
+              TableMigration(
+                goals,
+                columnTransformer: {
+                  goals.dueDate: const CustomExpression<String>('target_date'),
+                },
+                newColumns: [goals.status],
+              ),
+            );
+            // config_parser.pattern boleh kosong.
+            await m.alterTable(TableMigration(configParsers));
+            await customStatement(
+              "UPDATE budgets SET type = 'alokasi' WHERE type = 'allocation'",
+            );
+            await customStatement(
+              "UPDATE budgets SET type = 'budget' WHERE type = 'limit'",
+            );
+          }
         },
       );
 
@@ -315,6 +359,13 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
+  /// Buang satu baris antrean tanpa menyentuh data lokal — dipakai saat
+  /// server menolak permanen (VALIDATION/FORBIDDEN), supaya tidak dicoba
+  /// berulang selamanya.
+  Future<void> removeSyncRow(String id) async {
+    await (delete(syncQueue)..where((t) => t.id.equals(id))).go();
+  }
+
   Future<void> markSyncFailed(String id) async {
     final row = await (select(syncQueue)..where((t) => t.id.equals(id)))
         .getSingleOrNull();
@@ -376,8 +427,42 @@ class AppDatabase extends _$AppDatabase {
   Future<Transaction?> transactionById(String id) =>
       (select(transactions)..where((t) => t.id.equals(id))).getSingleOrNull();
 
-  Future<void> upsertTransaction(TransactionsCompanion companion) =>
-      into(transactions).insertOnConflictUpdate(companion);
+  /// Upsert transaksi. Companion yang hanya membawa sebagian kolom (mis.
+  /// hanya `categoryId`) digabung dulu dengan baris lokal, karena drift
+  /// menolak insert parsial untuk kolom wajib.
+  Future<void> upsertTransaction(TransactionsCompanion companion) async {
+    final id = companion.id.value;
+    final existing = await transactionById(id);
+    if (existing == null) {
+      await into(transactions).insert(companion);
+      return;
+    }
+    await (update(transactions)..where((t) => t.id.equals(id))).write(
+      companion.copyWith(
+        date: companion.date.present ? null : Value(existing.date),
+        type: companion.type.present ? null : Value(existing.type),
+        amount: companion.amount.present ? null : Value(existing.amount),
+        categoryId:
+            companion.categoryId.present ? null : Value(existing.categoryId),
+        account: companion.account.present ? null : Value(existing.account),
+        merchant: companion.merchant.present ? null : Value(existing.merchant),
+        note: companion.note.present ? null : Value(existing.note),
+        memberEmail:
+            companion.memberEmail.present ? null : Value(existing.memberEmail),
+        source: companion.source.present ? null : Value(existing.source),
+        goalId: companion.goalId.present ? null : Value(existing.goalId),
+        receiptUrl:
+            companion.receiptUrl.present ? null : Value(existing.receiptUrl),
+        rawText: companion.rawText.present ? null : Value(existing.rawText),
+        createdAt:
+            companion.createdAt.present ? null : Value(existing.createdAt),
+        updatedAt:
+            companion.updatedAt.present ? null : Value(existing.updatedAt),
+        isDeleted:
+            companion.isDeleted.present ? null : Value(existing.isDeleted),
+      ),
+    );
+  }
 }
 
 LazyDatabase _openConnection() {

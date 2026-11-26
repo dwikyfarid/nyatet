@@ -2,7 +2,9 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import '../data/database/app_database.dart';
+import '../data/database/mappers.dart';
 import '../data/repository/transaction_repository.dart';
+import '../data/sync/sync_transport.dart';
 import 'access_policy.dart';
 import 'report_service.dart';
 
@@ -43,13 +45,31 @@ class GoalProgress {
   }
 
   /// Status eksplisit untuk ditulis di kartu tujuan (UX-01: bukan cuma warna).
+  /// `on-track` hanya bila alokasi bulanan cukup untuk mengejar tenggat.
   String get statusLabel {
     if (achieved) return 'tercapai';
     final months = monthsToTarget;
     if (months == null) {
       return 'kurang Rp ${_rp(remaining)}';
     }
-    return 'on-track — ${months}x setoran lagi';
+    final due = goal.dueDate;
+    if (due == null) {
+      return 'on-track — $months x setoran lagi';
+    }
+    final monthsLeft = _monthsUntil(due);
+    if (months > monthsLeft) {
+      return 'kurang Rp ${_rp(remaining)} — ${months - monthsLeft} bulan '
+          'di luar tenggat';
+    }
+    return 'on-track — $months x setoran lagi';
+  }
+
+  /// Jumlah bulan kalender sampai [due] (dibulatkan ke atas, minimal 0).
+  static int _monthsUntil(DateTime due) {
+    final now = DateTime.now();
+    final months =
+        (due.year - now.year) * 12 + (due.month - now.month);
+    return months < 0 ? 0 : months;
   }
 
   static String _rp(double v) {
@@ -127,28 +147,39 @@ class AllocationRepository {
     if (!planned && income - otherTotal - amount < 0) {
       final overflow = GoalProgress._rp((otherTotal + amount) - income);
       throw AllocationRuleViolation(
-        'Alokasi lebih Rp $overflow dari pemasukan',
+        'alokasi lebih Rp $overflow dari pemasukan',
       );
     }
 
     final current = existing
         .where((b) => b.categoryId == categoryId)
         .toList();
+    final now = DateTime.now().toUtc();
+    late String budgetId;
     if (current.isEmpty) {
+      budgetId = const Uuid().v4();
       await _db.into(_db.budgets).insert(
             BudgetsCompanion.insert(
-              id: const Uuid().v4(),
+              id: budgetId,
               month: monthKey,
               categoryId: categoryId,
               type: const Value(BudgetType.allocation),
               allocatedAmount: Value(amount),
+              updatedAt: Value(now),
             ),
           );
     } else {
+      budgetId = current.first.id;
       await (_db.update(_db.budgets)
-            ..where((b) => b.id.equals(current.first.id)))
-          .write(BudgetsCompanion(allocatedAmount: Value(amount)));
+            ..where((b) => b.id.equals(budgetId)))
+          .write(
+        BudgetsCompanion(
+          allocatedAmount: Value(amount),
+          updatedAt: Value(now),
+        ),
+      );
     }
+    await _enqueueBudget(budgetId);
     return (planned: planned);
   }
 
@@ -169,20 +200,43 @@ class AllocationRepository {
                 b.type.equals(BudgetType.limit),
           ))
         .getSingleOrNull();
+    final now = DateTime.now().toUtc();
+    late String budgetId;
     if (existing == null) {
+      budgetId = const Uuid().v4();
       await _db.into(_db.budgets).insert(
             BudgetsCompanion.insert(
-              id: const Uuid().v4(),
+              id: budgetId,
               month: monthKey,
               categoryId: categoryId,
               type: const Value(BudgetType.limit),
               limitAmount: Value(amount),
+              updatedAt: Value(now),
             ),
           );
     } else {
-      await (_db.update(_db.budgets)..where((b) => b.id.equals(existing.id)))
-          .write(BudgetsCompanion(limitAmount: Value(amount)));
+      budgetId = existing.id;
+      await (_db.update(_db.budgets)
+            ..where((b) => b.id.equals(budgetId)))
+          .write(
+        BudgetsCompanion(limitAmount: Value(amount), updatedAt: Value(now)),
+      );
     }
+    await _enqueueBudget(budgetId);
+  }
+
+  /// Antrekan satu baris budget ke endpoint `budget.save` (bukan sync.push).
+  Future<void> _enqueueBudget(String budgetId) async {
+    final row = await (_db.select(_db.budgets)
+          ..where((b) => b.id.equals(budgetId)))
+        .getSingleOrNull();
+    if (row == null) return;
+    await _db.enqueueSync(
+      tableName: 'budgets',
+      rowId: row.id,
+      action: SyncOp.update,
+      payload: budgetToMap(row),
+    );
   }
 
   // ---------------------------------------------------------------------
@@ -192,7 +246,7 @@ class AllocationRepository {
   Future<List<GoalProgress>> goalsWithProgress(AccessPolicy policy) async {
     final goals = await (_db.select(_db.goals)
           ..where((g) => g.isDeleted.equals(false))
-          ..orderBy([(g) => OrderingTerm.asc(g.targetDate)]))
+          ..orderBy([(g) => OrderingTerm.asc(g.dueDate)]))
         .get();
     final result = <GoalProgress>[];
     for (final g in goals) {
@@ -220,14 +274,13 @@ class AllocationRepository {
     return result;
   }
 
-  /// Buat tujuan — admin saja (D-20).
+  /// Buat tujuan — admin saja (D-20). Tujuan tidak terikat kategori (D-22).
   Future<String> createGoal({
     required AccessPolicy policy,
     required String name,
     required double targetAmount,
     required double monthlyAllocation,
-    DateTime? targetDate,
-    String? categoryId,
+    DateTime? dueDate,
   }) async {
     final decision = policy.canManageGoals();
     if (!decision.allowed) throw AllocationRuleViolation(decision.reason!);
@@ -236,18 +289,29 @@ class AllocationRepository {
     }
     final id = const Uuid().v4();
     final now = DateTime.now().toUtc();
-    await _db.into(_db.goals).insert(
-          GoalsCompanion.insert(
-            id: id,
-            name: name,
-            targetAmount: targetAmount,
-            targetDate: Value(targetDate),
-            monthlyAllocation: monthlyAllocation,
-            categoryId: Value(categoryId),
-            createdAt: now,
-            updatedAt: now,
-          ),
-        );
+    await _db.transaction(() async {
+      await _db.into(_db.goals).insert(
+            GoalsCompanion.insert(
+              id: id,
+              name: name,
+              targetAmount: targetAmount,
+              dueDate: Value(dueDate),
+              monthlyAllocation: monthlyAllocation,
+              status: const Value('active'),
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
+      final saved = await (_db.select(_db.goals)..where((g) => g.id.equals(id)))
+          .getSingle();
+      // Master data lewat endpoint `goal.save`, bukan sync.push (D-22).
+      await _db.enqueueSync(
+        tableName: 'goals',
+        rowId: id,
+        action: SyncOp.create,
+        payload: goalToMap(saved),
+      );
+    });
     return id;
   }
 
@@ -259,6 +323,9 @@ class AllocationRepository {
     required double amount,
     DateTime? date,
   }) async {
+    // D-20/D-22: setoran boleh anggota (transaksinya sendiri), penarikan tidak.
+    final decision = policy.canDepositToGoal();
+    if (!decision.allowed) throw AllocationRuleViolation(decision.reason!);
     if (amount <= 0) {
       throw AllocationRuleViolation('Nominal setoran harus lebih dari nol');
     }
@@ -285,6 +352,9 @@ class AllocationRepository {
     required double amount,
     DateTime? date,
   }) async {
+    // Penarikan mengubah dana tujuan keluarga, jadi admin saja (D-22).
+    final decision = policy.canManageGoals();
+    if (!decision.allowed) throw AllocationRuleViolation(decision.reason!);
     if (amount <= 0) {
       throw AllocationRuleViolation('Nominal penarikan harus lebih dari nol');
     }

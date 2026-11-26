@@ -83,10 +83,19 @@ void main() {
     for (var i = 0; i < 5; i++) {
       final id = await add(type: TransactionType.outFlow, amount: 1000.0 * (i + 1));
       final txn = await db.transactionById(id);
+      // upsertTransaction = INSERT ... ON CONFLICT UPDATE, jadi drift butuh
+      // baris lengkap; kirim semua kolom wajib dari transaksi yang sudah ada.
       await db.upsertTransaction(
         TransactionsCompanion(
           id: Value(txn!.id),
+          date: Value(txn.date),
+          type: Value(txn.type),
+          amount: Value(txn.amount),
           categoryId: Value(catId),
+          memberEmail: Value(txn.memberEmail),
+          source: Value(txn.source),
+          createdAt: Value(txn.createdAt),
+          updatedAt: Value(txn.updatedAt),
         ),
       );
     }
@@ -137,7 +146,7 @@ void main() {
         isA<AllocationRuleViolation>().having(
           (e) => e.message,
           'message',
-          contains('alokasi lebih'),
+          contains(RegExp('alokasi lebih', caseSensitive: false)),
         ),
       ),
     );

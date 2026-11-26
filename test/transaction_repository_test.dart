@@ -38,11 +38,14 @@ void main() {
     expect(queue, hasLength(1));
     expect(queue.first.targetTable, 'transactions');
     expect(queue.first.rowId, id);
-    expect(queue.first.action, 'upsert');
+    // D-22: operasi dikirim sebagai create/update/delete, bukan 'upsert'.
+    expect(queue.first.action, 'create');
 
     final payload = jsonDecode(queue.first.payload) as Map<String, dynamic>;
     expect(payload['is_deleted'], false);
     expect(payload['member_email'], 'bapak@example.com');
+    // Tanggal Sheet = YYYY-MM-DD lokal.
+    expect(payload['date'], matches(r'^\d{4}-\d{2}-\d{2}$'));
   });
 
   test('setoran tujuan (goal_deposit) menyimpan goal_id dan masuk antrean',

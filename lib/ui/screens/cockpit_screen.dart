@@ -8,6 +8,7 @@ import '../../domain/report_service.dart';
 import '../format.dart';
 import '../../home_shell.dart';
 import '../providers.dart';
+import 'draft_queue_screen.dart';
 import 'drilldown_screen.dart';
 
 /// L2 — Beranda cockpit (F8): 4 keranjang D-17, alokasi teratas, tujuan,
@@ -71,7 +72,11 @@ class CockpitScreen extends ConsumerWidget {
                   leading: const Icon(Icons.inbox_outlined),
                   title: Text('${list.length} draf menunggu konfirmasi'),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: () => ref.read(homeTabProvider.notifier).state = 2,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const DraftQueueScreen(),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -267,7 +272,7 @@ class _AllocationTopCard extends ConsumerWidget {
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 TextButton(
-                  onPressed: () => ref.read(homeTabProvider.notifier).state = 3,
+                  onPressed: () => ref.read(homeTabProvider.notifier).state = 2,
                   child: const Text('Kelola alokasi'),
                 ),
               ],
@@ -342,7 +347,7 @@ class _GoalsCard extends ConsumerWidget {
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 TextButton(
-                  onPressed: () => ref.read(homeTabProvider.notifier).state = 4,
+                  onPressed: () => ref.read(homeTabProvider.notifier).state = 3,
                   child: const Text('Semua tujuan'),
                 ),
               ],

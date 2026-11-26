@@ -7,17 +7,18 @@ import 'data/seed/dev_seeder.dart';
 import 'ui/providers.dart';
 import 'ui/screens/allocation_screen.dart';
 import 'ui/screens/cockpit_screen.dart';
-import 'ui/screens/draft_queue_screen.dart';
 import 'ui/screens/goals_screen.dart';
 import 'ui/screens/transactions_screen.dart';
 
 /// 4 tujuan navigasi (UX-08) + FAB quick-add (D-18). Beranda = cockpit.
+/// Antrean draf dibuka dari kartu "draf menunggu" di beranda, bukan tab,
+/// supaya bottom nav tetap 4 tujuan.
 class HomeShell extends ConsumerWidget {
   const HomeShell({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final index = ref.watch(homeTabProvider);
+    final index = ref.watch(homeTabProvider).clamp(0, 3);
     final pending = ref.watch(pendingDraftsProvider);
     final pendingCount = pending.maybeWhen(
       data: (list) => list.length,
@@ -30,7 +31,6 @@ class HomeShell extends ConsumerWidget {
         children: const [
           CockpitScreen(),
           TransactionsScreen(),
-          DraftQueueScreen(),
           AllocationScreen(),
           GoalsScreen(),
         ],
@@ -43,13 +43,21 @@ class HomeShell extends ConsumerWidget {
             )
           : null,
       bottomNavigationBar: NavigationBar(
-        selectedIndex: index.clamp(0, 3),
+        selectedIndex: index,
         onDestinationSelected: (i) =>
             ref.read(homeTabProvider.notifier).state = i,
         destinations: [
-          const NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
+          NavigationDestination(
+            icon: Badge(
+              isLabelVisible: pendingCount > 0,
+              label: Text('$pendingCount'),
+              child: const Icon(Icons.dashboard_outlined),
+            ),
+            selectedIcon: Badge(
+              isLabelVisible: pendingCount > 0,
+              label: Text('$pendingCount'),
+              child: const Icon(Icons.dashboard),
+            ),
             label: 'Beranda',
           ),
           const NavigationDestination(
@@ -57,23 +65,15 @@ class HomeShell extends ConsumerWidget {
             selectedIcon: Icon(Icons.receipt_long),
             label: 'Transaksi',
           ),
-          NavigationDestination(
-            icon: Badge(
-              isLabelVisible: pendingCount > 0,
-              label: Text('$pendingCount'),
-              child: const Icon(Icons.inbox_outlined),
-            ),
-            selectedIcon: Badge(
-              isLabelVisible: pendingCount > 0,
-              label: Text('$pendingCount'),
-              child: const Icon(Icons.inbox),
-            ),
-            label: 'Antrean',
+          const NavigationDestination(
+            icon: Icon(Icons.donut_small_outlined),
+            selectedIcon: Icon(Icons.donut_small),
+            label: 'Alokasi',
           ),
           const NavigationDestination(
-            icon: Icon(Icons.account_balance_wallet_outlined),
-            selectedIcon: Icon(Icons.account_balance_wallet),
-            label: 'Alokasi',
+            icon: Icon(Icons.savings_outlined),
+            selectedIcon: Icon(Icons.savings),
+            label: 'Tujuan',
           ),
         ],
       ),

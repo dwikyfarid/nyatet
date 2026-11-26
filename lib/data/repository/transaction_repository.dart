@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 
 import '../database/app_database.dart';
 import '../database/mappers.dart';
+import '../sync/sync_transport.dart';
 
 /// Satu-satunya jalan masuk untuk mutasi transaksi, supaya tiap perubahan
 /// pasti masuk `sync_queue` dan tercatat di `audit_log` dalam transaksi atomik.
@@ -29,24 +30,6 @@ class TransactionRepository {
   }) async {
     final id = const Uuid().v4();
     final now = DateTime.now().toUtc();
-    final payload = <String, Object?>{
-      'id': id,
-      'date': date.toUtc().toIso8601String(),
-      'type': type,
-      'amount': amount,
-      'category_id': categoryId,
-      'account': account,
-      'merchant': merchant,
-      'note': note,
-      'member_email': memberEmail,
-      'source': source,
-      'goal_id': goalId,
-      'receipt_url': receiptUrl,
-      'raw_text': rawText,
-      'created_at': now.toIso8601String(),
-      'updated_at': now.toIso8601String(),
-      'is_deleted': false,
-    };
 
     await _db.transaction(() async {
       await _db.into(_db.transactions).insert(
@@ -68,11 +51,12 @@ class TransactionRepository {
               updatedAt: now,
             ),
           );
+      final created = await _db.transactionById(id);
       await _db.enqueueSync(
         tableName: 'transactions',
         rowId: id,
-        action: 'upsert',
-        payload: payload,
+        action: SyncOp.create,
+        payload: transactionToMap(created!),
       );
     });
     return id;
@@ -123,7 +107,7 @@ class TransactionRepository {
       await _db.enqueueSync(
         tableName: 'transactions',
         rowId: id,
-        action: 'upsert',
+        action: SyncOp.update,
         payload: afterMap,
       );
       await _db.writeAuditLog(
@@ -158,8 +142,9 @@ class TransactionRepository {
       await _db.enqueueSync(
         tableName: 'transactions',
         rowId: id,
-        action: 'upsert',
-        payload: afterMap,
+        action: SyncOp.delete,
+        // Server hanya butuh id untuk hapus; is_deleted diabaikan pada push.
+        payload: {'id': id},
       );
       await _db.writeAuditLog(
         memberEmail: actorEmail,
