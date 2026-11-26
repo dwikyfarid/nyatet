@@ -104,7 +104,8 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                             redBg: _redBg,
                             greenText: _greenText,
                             greenBg: _greenBg,
-                            onSetBudget: () => _setBudget(row),
+                            onSetBudget:
+                                row.isExpense ? () => _setBudget(row) : null,
                             onEditCategory: () => _editCategory(context, row.category),
                             onDeactivate: () => _deactivate(row.category),
                           );
@@ -300,7 +301,7 @@ class _BudgetRow extends StatelessWidget {
   final Color redBg;
   final Color greenText;
   final Color greenBg;
-  final VoidCallback onSetBudget;
+  final VoidCallback? onSetBudget;
   final VoidCallback onEditCategory;
   final VoidCallback onDeactivate;
 
@@ -361,14 +362,18 @@ class _BudgetRow extends StatelessWidget {
           ? PopupMenuButton<String>(
               tooltip: 'Aksi kategori',
               onSelected: (v) {
-                if (v == 'budget') onSetBudget();
+                if (v == 'budget') onSetBudget?.call();
                 if (v == 'edit') onEditCategory();
                 if (v == 'off') onDeactivate();
               },
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'budget', child: Text('Atur budget')),
-                PopupMenuItem(value: 'edit', child: Text('Ubah kategori')),
-                PopupMenuItem(value: 'off', child: Text('Nonaktifkan')),
+              itemBuilder: (_) => [
+                if (onSetBudget != null)
+                  const PopupMenuItem(
+                    value: 'budget',
+                    child: Text('Atur budget'),
+                  ),
+                const PopupMenuItem(value: 'edit', child: Text('Ubah kategori')),
+                const PopupMenuItem(value: 'off', child: Text('Nonaktifkan')),
               ],
             )
           : null,

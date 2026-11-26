@@ -1909,12 +1909,6 @@ class $GoalsTable extends Goals with TableInfo<$GoalsTable, Goal> {
       type: DriftSqlType.string,
       requiredDuringInsert: false,
       defaultValue: const Constant('active'));
-  static const VerificationMeta _createdAtMeta =
-      const VerificationMeta('createdAt');
-  @override
-  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
-      'created_at', aliasedName, false,
-      type: DriftSqlType.dateTime, requiredDuringInsert: true);
   static const VerificationMeta _updatedAtMeta =
       const VerificationMeta('updatedAt');
   @override
@@ -1939,7 +1933,6 @@ class $GoalsTable extends Goals with TableInfo<$GoalsTable, Goal> {
         dueDate,
         monthlyAllocation,
         status,
-        createdAt,
         updatedAt,
         isDeleted
       ];
@@ -1988,12 +1981,6 @@ class $GoalsTable extends Goals with TableInfo<$GoalsTable, Goal> {
       context.handle(_statusMeta,
           status.isAcceptableOrUnknown(data['status']!, _statusMeta));
     }
-    if (data.containsKey('created_at')) {
-      context.handle(_createdAtMeta,
-          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
-    } else if (isInserting) {
-      context.missing(_createdAtMeta);
-    }
     if (data.containsKey('updated_at')) {
       context.handle(_updatedAtMeta,
           updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
@@ -2025,8 +2012,6 @@ class $GoalsTable extends Goals with TableInfo<$GoalsTable, Goal> {
           DriftSqlType.double, data['${effectivePrefix}monthly_allocation'])!,
       status: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}status'])!,
-      createdAt: attachedDatabase.typeMapping
-          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
       updatedAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
       isDeleted: attachedDatabase.typeMapping
@@ -2051,7 +2036,6 @@ class Goal extends DataClass implements Insertable<Goal> {
 
   /// `active` | `done` — status manual dari Sheet.
   final String status;
-  final DateTime createdAt;
   final DateTime updatedAt;
   final bool isDeleted;
   const Goal(
@@ -2061,7 +2045,6 @@ class Goal extends DataClass implements Insertable<Goal> {
       this.dueDate,
       required this.monthlyAllocation,
       required this.status,
-      required this.createdAt,
       required this.updatedAt,
       required this.isDeleted});
   @override
@@ -2075,7 +2058,6 @@ class Goal extends DataClass implements Insertable<Goal> {
     }
     map['monthly_allocation'] = Variable<double>(monthlyAllocation);
     map['status'] = Variable<String>(status);
-    map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     map['is_deleted'] = Variable<bool>(isDeleted);
     return map;
@@ -2091,7 +2073,6 @@ class Goal extends DataClass implements Insertable<Goal> {
           : Value(dueDate),
       monthlyAllocation: Value(monthlyAllocation),
       status: Value(status),
-      createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
       isDeleted: Value(isDeleted),
     );
@@ -2107,7 +2088,6 @@ class Goal extends DataClass implements Insertable<Goal> {
       dueDate: serializer.fromJson<DateTime?>(json['dueDate']),
       monthlyAllocation: serializer.fromJson<double>(json['monthlyAllocation']),
       status: serializer.fromJson<String>(json['status']),
-      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
     );
@@ -2122,7 +2102,6 @@ class Goal extends DataClass implements Insertable<Goal> {
       'dueDate': serializer.toJson<DateTime?>(dueDate),
       'monthlyAllocation': serializer.toJson<double>(monthlyAllocation),
       'status': serializer.toJson<String>(status),
-      'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'isDeleted': serializer.toJson<bool>(isDeleted),
     };
@@ -2135,7 +2114,6 @@ class Goal extends DataClass implements Insertable<Goal> {
           Value<DateTime?> dueDate = const Value.absent(),
           double? monthlyAllocation,
           String? status,
-          DateTime? createdAt,
           DateTime? updatedAt,
           bool? isDeleted}) =>
       Goal(
@@ -2145,7 +2123,6 @@ class Goal extends DataClass implements Insertable<Goal> {
         dueDate: dueDate.present ? dueDate.value : this.dueDate,
         monthlyAllocation: monthlyAllocation ?? this.monthlyAllocation,
         status: status ?? this.status,
-        createdAt: createdAt ?? this.createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
         isDeleted: isDeleted ?? this.isDeleted,
       );
@@ -2161,7 +2138,6 @@ class Goal extends DataClass implements Insertable<Goal> {
           ? data.monthlyAllocation.value
           : this.monthlyAllocation,
       status: data.status.present ? data.status.value : this.status,
-      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
     );
@@ -2176,7 +2152,6 @@ class Goal extends DataClass implements Insertable<Goal> {
           ..write('dueDate: $dueDate, ')
           ..write('monthlyAllocation: $monthlyAllocation, ')
           ..write('status: $status, ')
-          ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('isDeleted: $isDeleted')
           ..write(')'))
@@ -2185,7 +2160,7 @@ class Goal extends DataClass implements Insertable<Goal> {
 
   @override
   int get hashCode => Object.hash(id, name, targetAmount, dueDate,
-      monthlyAllocation, status, createdAt, updatedAt, isDeleted);
+      monthlyAllocation, status, updatedAt, isDeleted);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2196,7 +2171,6 @@ class Goal extends DataClass implements Insertable<Goal> {
           other.dueDate == this.dueDate &&
           other.monthlyAllocation == this.monthlyAllocation &&
           other.status == this.status &&
-          other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
           other.isDeleted == this.isDeleted);
 }
@@ -2208,7 +2182,6 @@ class GoalsCompanion extends UpdateCompanion<Goal> {
   final Value<DateTime?> dueDate;
   final Value<double> monthlyAllocation;
   final Value<String> status;
-  final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<bool> isDeleted;
   final Value<int> rowid;
@@ -2219,7 +2192,6 @@ class GoalsCompanion extends UpdateCompanion<Goal> {
     this.dueDate = const Value.absent(),
     this.monthlyAllocation = const Value.absent(),
     this.status = const Value.absent(),
-    this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -2231,7 +2203,6 @@ class GoalsCompanion extends UpdateCompanion<Goal> {
     this.dueDate = const Value.absent(),
     required double monthlyAllocation,
     this.status = const Value.absent(),
-    required DateTime createdAt,
     required DateTime updatedAt,
     this.isDeleted = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -2239,7 +2210,6 @@ class GoalsCompanion extends UpdateCompanion<Goal> {
         name = Value(name),
         targetAmount = Value(targetAmount),
         monthlyAllocation = Value(monthlyAllocation),
-        createdAt = Value(createdAt),
         updatedAt = Value(updatedAt);
   static Insertable<Goal> custom({
     Expression<String>? id,
@@ -2248,7 +2218,6 @@ class GoalsCompanion extends UpdateCompanion<Goal> {
     Expression<DateTime>? dueDate,
     Expression<double>? monthlyAllocation,
     Expression<String>? status,
-    Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<bool>? isDeleted,
     Expression<int>? rowid,
@@ -2260,7 +2229,6 @@ class GoalsCompanion extends UpdateCompanion<Goal> {
       if (dueDate != null) 'due_date': dueDate,
       if (monthlyAllocation != null) 'monthly_allocation': monthlyAllocation,
       if (status != null) 'status': status,
-      if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (isDeleted != null) 'is_deleted': isDeleted,
       if (rowid != null) 'rowid': rowid,
@@ -2274,7 +2242,6 @@ class GoalsCompanion extends UpdateCompanion<Goal> {
       Value<DateTime?>? dueDate,
       Value<double>? monthlyAllocation,
       Value<String>? status,
-      Value<DateTime>? createdAt,
       Value<DateTime>? updatedAt,
       Value<bool>? isDeleted,
       Value<int>? rowid}) {
@@ -2285,7 +2252,6 @@ class GoalsCompanion extends UpdateCompanion<Goal> {
       dueDate: dueDate ?? this.dueDate,
       monthlyAllocation: monthlyAllocation ?? this.monthlyAllocation,
       status: status ?? this.status,
-      createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       isDeleted: isDeleted ?? this.isDeleted,
       rowid: rowid ?? this.rowid,
@@ -2313,9 +2279,6 @@ class GoalsCompanion extends UpdateCompanion<Goal> {
     if (status.present) {
       map['status'] = Variable<String>(status.value);
     }
-    if (createdAt.present) {
-      map['created_at'] = Variable<DateTime>(createdAt.value);
-    }
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
@@ -2337,7 +2300,6 @@ class GoalsCompanion extends UpdateCompanion<Goal> {
           ..write('dueDate: $dueDate, ')
           ..write('monthlyAllocation: $monthlyAllocation, ')
           ..write('status: $status, ')
-          ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('rowid: $rowid')
@@ -5481,7 +5443,6 @@ typedef $$GoalsTableCreateCompanionBuilder = GoalsCompanion Function({
   Value<DateTime?> dueDate,
   required double monthlyAllocation,
   Value<String> status,
-  required DateTime createdAt,
   required DateTime updatedAt,
   Value<bool> isDeleted,
   Value<int> rowid,
@@ -5493,7 +5454,6 @@ typedef $$GoalsTableUpdateCompanionBuilder = GoalsCompanion Function({
   Value<DateTime?> dueDate,
   Value<double> monthlyAllocation,
   Value<String> status,
-  Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
   Value<bool> isDeleted,
   Value<int> rowid,
@@ -5525,9 +5485,6 @@ class $$GoalsTableFilterComposer extends Composer<_$AppDatabase, $GoalsTable> {
 
   ColumnFilters<String> get status => $composableBuilder(
       column: $table.status, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<DateTime> get createdAt => $composableBuilder(
-      column: $table.createdAt, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<DateTime> get updatedAt => $composableBuilder(
       column: $table.updatedAt, builder: (column) => ColumnFilters(column));
@@ -5565,9 +5522,6 @@ class $$GoalsTableOrderingComposer
   ColumnOrderings<String> get status => $composableBuilder(
       column: $table.status, builder: (column) => ColumnOrderings(column));
 
-  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
-      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
-
   ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
       column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
 
@@ -5601,9 +5555,6 @@ class $$GoalsTableAnnotationComposer
 
   GeneratedColumn<String> get status =>
       $composableBuilder(column: $table.status, builder: (column) => column);
-
-  GeneratedColumn<DateTime> get createdAt =>
-      $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
@@ -5641,7 +5592,6 @@ class $$GoalsTableTableManager extends RootTableManager<
             Value<DateTime?> dueDate = const Value.absent(),
             Value<double> monthlyAllocation = const Value.absent(),
             Value<String> status = const Value.absent(),
-            Value<DateTime> createdAt = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
             Value<bool> isDeleted = const Value.absent(),
             Value<int> rowid = const Value.absent(),
@@ -5653,7 +5603,6 @@ class $$GoalsTableTableManager extends RootTableManager<
             dueDate: dueDate,
             monthlyAllocation: monthlyAllocation,
             status: status,
-            createdAt: createdAt,
             updatedAt: updatedAt,
             isDeleted: isDeleted,
             rowid: rowid,
@@ -5665,7 +5614,6 @@ class $$GoalsTableTableManager extends RootTableManager<
             Value<DateTime?> dueDate = const Value.absent(),
             required double monthlyAllocation,
             Value<String> status = const Value.absent(),
-            required DateTime createdAt,
             required DateTime updatedAt,
             Value<bool> isDeleted = const Value.absent(),
             Value<int> rowid = const Value.absent(),
@@ -5677,7 +5625,6 @@ class $$GoalsTableTableManager extends RootTableManager<
             dueDate: dueDate,
             monthlyAllocation: monthlyAllocation,
             status: status,
-            createdAt: createdAt,
             updatedAt: updatedAt,
             isDeleted: isDeleted,
             rowid: rowid,

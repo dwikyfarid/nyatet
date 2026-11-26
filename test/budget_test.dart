@@ -208,4 +208,33 @@ void main() {
     final rows = await fresh.select(fresh.transactions).get();
     expect(rows.where((t) => t.type == TransactionType.goalDeposit), isNotEmpty);
   });
+
+  test('D-34: kategori masuk tidak punya budget, setLimit ditolak dengan pesan',
+      () async {
+    final gaji = cat('Gaji');
+    expect(gaji.type, TransactionType.inFlow);
+
+    final status = (await budgets.status(admin, monthKey))
+        .firstWhere((s) => s.category.id == gaji.id);
+    expect(status.isExpense, isFalse);
+    expect(status.hasBudget, isFalse);
+    expect(status.percentLabel, 'tanpa budget');
+    expect(status.levelLabel, 'masuk · tanpa budget');
+
+    await expectLater(
+      allocations.setLimit(
+        policy: admin,
+        monthKey: monthKey,
+        categoryId: gaji.id,
+        amount: 1000000,
+      ),
+      throwsA(
+        isA<AllocationRuleViolation>().having(
+          (e) => e.message,
+          'message',
+          contains('hanya untuk kategori pengeluaran'),
+        ),
+      ),
+    );
+  });
 }
