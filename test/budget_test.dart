@@ -6,6 +6,7 @@ import 'package:nyatet/domain/access_policy.dart';
 import 'package:nyatet/domain/allocation_repository.dart';
 import 'package:nyatet/domain/budget_repository.dart';
 import 'package:nyatet/domain/report_service.dart';
+import 'package:nyatet/ui/screens/budget_screen.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -237,6 +238,17 @@ void main() {
           contains('hanya untuk kategori pengeluaran'),
         ),
       ),
+    );
+  });
+
+  test('UX-16: pesan simpan budget memuat terpakai, batas, dan persen', () {
+    expect(
+      budgetSavedMessage('Makan', 405000, 400000),
+      'Budget Makan disimpan — terpakai Rp 405.000 dari Rp 400.000 (101%)',
+    );
+    expect(
+      budgetSavedMessage('Transport', 0, 500000),
+      contains('(0%)'),
     );
   });
 }

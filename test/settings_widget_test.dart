@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:nyatet/ui/providers.dart';
 import 'package:nyatet/ui/screens/settings_screen.dart';
+import 'package:nyatet/config/app_links.dart';
 import 'package:nyatet/update/apk_bridge.dart';
 import 'package:nyatet/update/github_api.dart';
 import 'package:nyatet/update/update_models.dart';
@@ -14,6 +15,11 @@ import 'package:nyatet/update/update_service.dart';
 class _Offline implements NetworkProbe {
   @override
   Future<bool> isOnline() async => false;
+}
+
+class _Online implements NetworkProbe {
+  @override
+  Future<bool> isOnline() async => true;
 }
 
 void main() {
@@ -32,14 +38,14 @@ void main() {
     );
   }
 
-  UpdateService service(UpdateStore store) => UpdateService(
+  UpdateService service(UpdateStore store, {NetworkProbe? network}) => UpdateService(
         api: GitHubUpdateApi(
           client: MockClient((_) async => http.Response('{}', 404)),
         ),
         bridge: _NoopBridge(),
         installedVersion: () async => installed,
         store: store,
-        network: _Offline(),
+        network: network ?? _Offline(),
       );
 
   testWidgets('REL-04: build play tidak punya baris "Cek update sekarang"',
@@ -69,6 +75,43 @@ void main() {
     expect(find.text('Cek update sekarang'), findsOneWidget);
     expect(find.textContaining('Terakhir dicek'), findsOneWidget);
     expect(find.text('0.1.0 (1)'), findsOneWidget);
+  });
+
+  testWidgets('F9/F12: Pengaturan menautkan privasi & hapus data dari konstanta',
+      (tester) async {
+    await tester.pumpWidget(
+      app(updateEnabled: false, service: service(InMemoryUpdateStore())),
+    );
+    await tester.pumpAndSettle();
+
+    // Berlaku juga di build play: privasi & hapus data bukan fitur update.
+    expect(find.text('Kebijakan privasi'), findsOneWidget);
+    expect(find.text('Hapus data akun'), findsOneWidget);
+    expect(find.text(AppLinks.privacyPolicy), findsOneWidget);
+    expect(find.text(AppLinks.deleteData), findsOneWidget);
+
+    await tester.tap(find.text('Hapus data akun'));
+    await tester.pumpAndSettle();
+    expect(find.text('Halaman belum terbit'), findsOneWidget);
+    expect(find.text(AppLinks.deleteData), findsWidgets);
+  });
+
+  testWidgets('Cek update manual selalu memberi jawaban (bukan diam)',
+      (tester) async {
+    final store = InMemoryUpdateStore();
+    await tester.pumpWidget(
+      app(
+        updateEnabled: true,
+        service: service(store, network: _Online()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Repo belum punya rilis → status upToDate, tetapi user harus melihat hasil.
+    await tester.tap(find.text('Cek update sekarang'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.textContaining('sudah versi terbaru'), findsOneWidget);
   });
 }
 

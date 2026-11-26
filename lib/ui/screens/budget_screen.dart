@@ -9,6 +9,13 @@ import '../format.dart';
 import '../providers.dart';
 import 'cockpit_screen.dart' show monthLabel;
 
+/// Pesan simpan budget (UX-16): selalu berisi angka yang berguna.
+String budgetSavedMessage(String category, double spent, double limit) {
+  final pct = limit <= 0 ? 0 : (spent / limit * 100).round();
+  return 'Budget $category disimpan — terpakai '
+      '${formatRupiah(spent)} dari ${formatRupiah(limit)} ($pct%)';
+}
+
 /// L8 — Kategori & Budget (F7), khusus admin.
 /// Daftar kategori + budget bulan berjalan (limit), indikator amber ≥80% /
 /// merah ≥100%, selalu dengan teks persen + panah (UX-01). Budget hanya
@@ -159,11 +166,12 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
           );
       ref.invalidate(budgetStatusProvider);
       if (!mounted) return;
+      // UX-16: umpan balik berisi angka berguna, bukan sekadar "tersimpan".
+      final limit = parseRupiah(controller.text);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Budget ${row.category.name} tersimpan — '
-            'sisa ${formatRupiah((row.limit - row.spent).clamp(0, double.infinity))}',
+            budgetSavedMessage(row.category.name, row.spent, limit),
           ),
         ),
       );

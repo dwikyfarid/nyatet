@@ -2,10 +2,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../config/app_links.dart';
 import '../../update/update_models.dart';
 import '../../update/update_service.dart';
 import '../providers.dart';
 import '../widgets/update_dialog.dart';
+import 'legal_placeholder_screen.dart';
 
 /// Pengaturan (REL-03). Baris cek update hanya dirender pada build
 /// `sideload`; build `play` tidak pernah membaca layanan update sama sekali.
@@ -65,8 +67,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (result.hasUpdate) {
       await _showUpdate(service, result.release!);
     } else if (result.status == UpdateStatus.upToDate) {
+      // UX: menekan tombol harus selalu memberi jawaban, termasuk saat
+      // hasilnya "tidak ada versi baru".
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sudah versi terbaru')),
+        SnackBar(
+          content: Text(
+            'Diperiksa ${_clock(result.checkedAt)} — sudah versi terbaru',
+          ),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result.message ?? 'Tidak bisa cek update')),
       );
     }
   }
@@ -87,6 +99,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         );
       },
     );
+  }
+
+  String _clock(DateTime at) {
+    final local = at.toLocal();
+    String two(int v) => v.toString().padLeft(2, '0');
+    return '${two(local.hour)}:${two(local.minute)}';
   }
 
   String _timeLabel(DateTime? at) {
@@ -124,6 +142,35 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               leading: const Icon(Icons.info_outline),
               title: const Text('Versi aplikasi'),
               subtitle: Text(v.label),
+            ),
+          ),
+          const Divider(),
+          // F9/F12: tautan kebijakan privasi & hapus data, URL dari satu
+          // konstanta konfigurasi (bukan hardcode di widget).
+          ListTile(
+            leading: const Icon(Icons.privacy_tip_outlined),
+            title: const Text('Kebijakan privasi'),
+            subtitle: const Text(AppLinks.privacyPolicy),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const LegalPlaceholderScreen(
+                  title: 'Kebijakan privasi',
+                  url: AppLinks.privacyPolicy,
+                ),
+              ),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.delete_forever_outlined),
+            title: const Text('Hapus data akun'),
+            subtitle: const Text(AppLinks.deleteData),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const LegalPlaceholderScreen(
+                  title: 'Hapus data akun',
+                  url: AppLinks.deleteData,
+                ),
+              ),
             ),
           ),
           if (updateEnabled) ...[
