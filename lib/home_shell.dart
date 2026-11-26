@@ -115,13 +115,16 @@ class DevMenu extends ConsumerWidget {
             ref.invalidate(visibleTransactionsProvider);
             ref.invalidate(cashSummaryProvider);
             ref.invalidate(unallocatedProvider);
+            ref.invalidate(allocationRowsProvider);
+            ref.invalidate(goalsProvider);
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(
                     created == 0
                         ? 'Seed dilewati — database sudah berisi transaksi'
-                        : '$created transaksi uji dimuat',
+                        : '$created transaksi uji dimuat (2 bulan, 3 anggota, '
+                            '3 tujuan)',
                   ),
                 ),
               );
@@ -140,7 +143,7 @@ class DevMenu extends ConsumerWidget {
         const PopupMenuDivider(),
         const PopupMenuItem(
           value: 'seed',
-          child: Text('Muat 200 transaksi uji'),
+          child: Text('Muat data uji (200 transaksi)'),
         ),
       ],
       child: const Padding(

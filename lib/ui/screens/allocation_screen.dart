@@ -6,6 +6,7 @@ import '../../data/database/app_database.dart';
 import '../../domain/allocation_repository.dart';
 import '../format.dart';
 import '../providers.dart';
+import 'budget_screen.dart';
 import 'cockpit_screen.dart';
 
 /// L4 — Alokasi dana per kategori (F10). Alokasi = rencana, budget = batas,
@@ -27,9 +28,19 @@ class AllocationScreen extends ConsumerWidget {
         title: const Text('Alokasi'),
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 12),
+            padding: const EdgeInsets.only(right: 4),
             child: Center(child: Text(monthLabel(month))),
           ),
+          if (session.isAdmin)
+            IconButton(
+              tooltip: 'Kategori & budget',
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const BudgetScreen(),
+                ),
+              ),
+              icon: const Icon(Icons.tune),
+            ),
         ],
       ),
       body: ListView(

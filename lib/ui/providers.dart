@@ -7,6 +7,7 @@ import '../data/repository/draft_repository.dart';
 import '../data/repository/transaction_repository.dart';
 import '../domain/access_policy.dart';
 import '../domain/allocation_repository.dart';
+import '../domain/budget_repository.dart';
 import '../domain/report_service.dart';
 import '../domain/transaction_service.dart';
 
@@ -110,6 +111,21 @@ final allocationRepositoryProvider = Provider<AllocationRepository>(
 );
 
 /// Bulan yang sedang dilihat (cockpit, alokasi). Format `YYYY-MM`.
+final budgetRepositoryProvider = Provider<BudgetRepository>(
+  (ref) => BudgetRepository(
+    ref.watch(databaseProvider),
+    ref.watch(reportServiceProvider),
+  ),
+);
+
+/// Kategori + budget + terpakai bulan berjalan (F7/L8).
+final budgetStatusProvider = FutureProvider<List<CategoryBudgetStatus>>((ref) {
+  return ref.watch(budgetRepositoryProvider).status(
+        ref.watch(accessPolicyProvider),
+        ref.watch(selectedMonthProvider),
+      );
+});
+
 final selectedMonthProvider = StateProvider<String>(
   (ref) => ReportService.monthKey(DateTime.now()),
 );
