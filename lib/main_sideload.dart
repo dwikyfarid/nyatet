@@ -6,5 +6,9 @@ import 'main.dart' show bootstrap;
 
 /// Konstanta eksplisit supaya uji bisa mengunci perilaku entrypoint.
 const bool kUpdateCheckerEnabled = true;
+const String kDistribution = 'sideload';
 
-Future<void> main() => bootstrap(enableUpdateChecker: kUpdateCheckerEnabled);
+Future<void> main() => bootstrap(
+  enableUpdateChecker: kUpdateCheckerEnabled,
+  distribution: kDistribution,
+);

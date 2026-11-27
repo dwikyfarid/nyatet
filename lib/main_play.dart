@@ -8,5 +8,9 @@ import 'main.dart' show bootstrap;
 
 /// Build Play TIDAK boleh memuat cek update (kebijakan Play).
 const bool kUpdateCheckerEnabled = false;
+const String kDistribution = 'play';
 
-Future<void> main() => bootstrap(enableUpdateChecker: kUpdateCheckerEnabled);
+Future<void> main() => bootstrap(
+  enableUpdateChecker: kUpdateCheckerEnabled,
+  distribution: kDistribution,
+);

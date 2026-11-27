@@ -18,8 +18,15 @@ import 'ui/widgets/update_dialog.dart';
 /// Build Play WAJIB memakai `-t lib/main_play.dart`; lihat tooling/build_all.sh.
 Future<void> main() => bootstrap(enableUpdateChecker: true);
 
-Future<void> bootstrap({required bool enableUpdateChecker}) async {
+Future<void> bootstrap({
+  required bool enableUpdateChecker,
+  String distribution = 'sideload',
+}) async {
   WidgetsFlutterBinding.ensureInitialized();
+  // D-38/REL-04: penanda build supaya QA bisa membuktikan APK mana yang
+  // terpasang (logcat: "Nyatet distribution=play").
+  debugPrint('Nyatet distribution=$distribution '
+      'updateChecker=$enableUpdateChecker');
   final container = ProviderContainer(
     overrides: [
       updateEnabledProvider.overrideWithValue(enableUpdateChecker),

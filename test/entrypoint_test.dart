@@ -8,5 +8,8 @@ void main() {
   test('build play mematikan cek update, build sideload menyalakannya', () {
     expect(play.kUpdateCheckerEnabled, isFalse);
     expect(sideload.kUpdateCheckerEnabled, isTrue);
+    // Penanda yang muncul di logcat saat app dibuka.
+    expect(play.kDistribution, 'play');
+    expect(sideload.kDistribution, 'sideload');
   });
 }
