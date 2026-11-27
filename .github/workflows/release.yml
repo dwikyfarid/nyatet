@@ -158,7 +158,7 @@ jobs:
           else
             cp "$OUT/app-release.apk" "dist/nyatet-v$VERSION.apk"
           fi
-          ( cd dist && shasum -a 256 ./*.apk | tee ../sha256.txt )
+          ( cd dist && shasum -a 256 ./*.apk | sed 's|  \./|  |' | tee ../sha256.txt )
           ls -l dist
 
       - name: Verifikasi tanda tangan rilis
@@ -212,7 +212,7 @@ jobs:
             echo "| Berkas | Ukuran | SHA-256 |"
             echo "|---|---|---|"
             while read -r hash file; do
-              size=$(wc -c < "$file" | tr -d ' ')
+              size=$(wc -c < "dist/$(basename "$file")" | tr -d ' ')
               echo "| \`$(basename "$file")\` | $size byte | \`$hash\` |"
             done < sha256.txt
             echo
