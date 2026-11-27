@@ -11,6 +11,8 @@ import '../domain/access_policy.dart';
 import '../domain/allocation_repository.dart';
 import '../domain/budget_repository.dart';
 import '../domain/report_service.dart';
+import '../domain/search_service.dart';
+import '../domain/transaction_filters.dart';
 import '../domain/transaction_service.dart';
 import '../update/apk_bridge.dart';
 import '../update/github_api.dart';
@@ -128,10 +130,14 @@ final budgetRepositoryProvider = Provider<BudgetRepository>(
 );
 
 /// Kategori + budget + terpakai bulan berjalan (F7/L8).
+/// F15: chip status kategori di L8 (aktif / nonaktif).
+final budgetShowInactiveProvider = StateProvider<bool>((ref) => false);
+
 final budgetStatusProvider = FutureProvider<List<CategoryBudgetStatus>>((ref) {
   return ref.watch(budgetRepositoryProvider).status(
         ref.watch(accessPolicyProvider),
         ref.watch(selectedMonthProvider),
+        includeInactive: ref.watch(budgetShowInactiveProvider),
       );
 });
 
@@ -236,3 +242,71 @@ final updateServiceProvider = Provider<UpdateService>(
     network: const ConnectivityProbe(),
   ),
 );
+
+
+// ---------------------------------------------------------------------------
+// F15/D-50 — cari global + filter per layar (semua dari data lokal)
+// ---------------------------------------------------------------------------
+
+final searchServiceProvider = Provider<SearchService>(
+  (ref) => SearchService(ref.watch(databaseProvider)),
+);
+
+final globalQueryProvider = StateProvider<String>((ref) => '');
+
+final globalSearchProvider = FutureProvider<GlobalSearchResult>((ref) {
+  final query = ref.watch(globalQueryProvider).trim();
+  if (query.isEmpty) {
+    return const GlobalSearchResult(
+      query: '',
+      transactions: [],
+      categories: [],
+      goals: [],
+      members: [],
+    );
+  }
+  return ref
+      .watch(searchServiceProvider)
+      .search(ref.watch(accessPolicyProvider), query);
+});
+
+/// Filter transaksi (L3). null = Semua.
+final txTypeFilterProvider = StateProvider<String?>((ref) => null);
+final txSourceFilterProvider = StateProvider<String?>((ref) => null);
+final txCategoryFilterProvider = StateProvider<String?>((ref) => null);
+final txMemberFilterProvider = StateProvider<String?>((ref) => null);
+final txSortProvider = StateProvider<TxSort>((ref) => TxSort.dateDesc);
+
+/// F15/D-16: posisi gulir daftar transaksi disimpan supaya hasil cari yang
+/// mengetuk "anggota" mendarat di posisi/filter yang sama, bukan beranda reset.
+final txScrollOffsetProvider = StateProvider<double>((ref) => 0);
+
+/// Pilihan anggota untuk panel filter (dari data lokal).
+final txMemberChoicesProvider = FutureProvider<List<String>>((ref) async {
+  final rows = await ref.watch(visibleTransactionsProvider.future);
+  return rows.map((t) => t.memberEmail).toSet().toList()..sort();
+});
+
+/// Daftar transaksi setelah filter + urutan layar.
+final filteredTransactionsProvider = FutureProvider<List<Transaction>>(
+  (ref) async {
+    final rows = await ref.watch(visibleTransactionsProvider.future);
+    return applyTransactionFilters(
+      rows,
+      type: ref.watch(txTypeFilterProvider),
+      source: ref.watch(txSourceFilterProvider),
+      categoryId: ref.watch(txCategoryFilterProvider),
+      memberEmail: ref.watch(txMemberFilterProvider),
+      sort: ref.watch(txSortProvider),
+    );
+  },
+);
+
+
+/// F15: filter + urutan tujuan (L5).
+enum GoalFilter { all, achieved, active }
+
+enum GoalSort { dueDate, name }
+
+final goalFilterProvider = StateProvider<GoalFilter>((ref) => GoalFilter.all);
+final goalSortProvider = StateProvider<GoalSort>((ref) => GoalSort.dueDate);

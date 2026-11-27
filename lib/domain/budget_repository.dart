@@ -73,13 +73,16 @@ class BudgetRepository {
 
   Future<List<CategoryBudgetStatus>> status(
     AccessPolicy policy,
-    String monthKey,
-  ) async {
+    String monthKey, {
+    bool includeInactive = false,
+  }) async {
     final month = DateTime.parse('$monthKey-01');
-    final categories = await (_db.select(_db.categories)
-          ..where((c) => c.isActive.equals(true))
-          ..orderBy([(c) => OrderingTerm.asc(c.name)]))
-        .get();
+    final categoriesQuery = _db.select(_db.categories)
+      ..orderBy([(c) => OrderingTerm.asc(c.name)]);
+    if (!includeInactive) {
+      categoriesQuery.where((c) => c.isActive.equals(true));
+    }
+    final categories = await categoriesQuery.get();
     final limits = await (_db.select(_db.budgets)
           ..where(
             (b) =>
