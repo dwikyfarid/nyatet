@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/database/app_database.dart';
 import '../format.dart';
+import '../../domain/transaction_filters.dart';
 import '../providers.dart';
 import '../widgets/transaction_detail.dart';
 import 'quick_add_screen.dart';
@@ -14,7 +15,10 @@ class TransactionsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final txs = ref.watch(visibleTransactionsProvider);
+    final txs = ref.watch(filteredTransactionsProvider);
+    final typeFilter = ref.watch(txTypeFilterProvider);
+    final sourceFilter = ref.watch(txSourceFilterProvider);
+    final sort = ref.watch(txSortProvider);
     final session = ref.watch(sessionProvider);
     final query = ref.watch(searchQueryProvider);
 
@@ -53,6 +57,68 @@ class TransactionsScreen extends ConsumerWidget {
                 isDense: true,
               ),
               onChanged: (v) => ref.read(searchQueryProvider.notifier).state = v,
+            ),
+          ),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                for (final entry in const [
+                  (label: 'Semua', value: null),
+                  (label: 'Keluar', value: TransactionType.outFlow),
+                  (label: 'Masuk', value: TransactionType.inFlow),
+                  (label: 'Transfer', value: TransactionType.transfer),
+                ])
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: FilterChip(
+                      label: Text('Jenis: ${entry.label}'),
+                      selected: typeFilter == entry.value,
+                      onSelected: (_) => ref
+                          .read(txTypeFilterProvider.notifier)
+                          .state = entry.value,
+                    ),
+                  ),
+                for (final entry in const [
+                  (label: 'Semua', value: null),
+                  (label: 'Notifikasi', value: TransactionSource.notif),
+                  (label: 'OCR', value: TransactionSource.ocr),
+                  (label: 'Manual', value: TransactionSource.manual),
+                ])
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: FilterChip(
+                      label: Text('Sumber: ${entry.label}'),
+                      selected: sourceFilter == entry.value,
+                      onSelected: (_) => ref
+                          .read(txSourceFilterProvider.notifier)
+                          .state = entry.value,
+                    ),
+                  ),
+                if (typeFilter != null || sourceFilter != null)
+                  ActionChip(
+                    avatar: const Icon(Icons.clear, size: 16),
+                    label: const Text('Reset semua'),
+                    onPressed: () {
+                      ref.read(txTypeFilterProvider.notifier).state = null;
+                      ref.read(txSourceFilterProvider.notifier).state = null;
+                      ref.read(txCategoryFilterProvider.notifier).state = null;
+                      ref.read(txMemberFilterProvider.notifier).state = null;
+                    },
+                  ),
+                const SizedBox(width: 8),
+                DropdownButton<TxSort>(
+                  value: sort,
+                  items: [
+                    for (final s in TxSort.values)
+                      DropdownMenuItem(value: s, child: Text(s.label)),
+                  ],
+                  onChanged: (v) {
+                    if (v != null) ref.read(txSortProvider.notifier).state = v;
+                  },
+                ),
+              ],
             ),
           ),
           Expanded(

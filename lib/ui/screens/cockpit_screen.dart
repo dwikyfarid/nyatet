@@ -8,6 +8,7 @@ import '../../domain/report_service.dart';
 import '../format.dart';
 import '../../home_shell.dart';
 import '../providers.dart';
+import '../widgets/global_search_results.dart';
 import 'draft_queue_screen.dart';
 import 'settings_screen.dart';
 import 'drilldown_screen.dart';
@@ -48,7 +49,24 @@ class CockpitScreen extends ConsumerWidget {
           if (ref.watch(devToolsEnabledProvider)) const DevMenu(),
         ],
       ),
-      body: RefreshIndicator(
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: TextField(
+              onChanged: (v) =>
+                  ref.read(globalQueryProvider.notifier).state = v,
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.search),
+                hintText: 'Cari transaksi, kategori, tujuan, anggota…',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+            ),
+          ),
+          Expanded(
+            child: ref.watch(globalQueryProvider).trim().isEmpty
+                ? RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(cashSummaryProvider);
           ref.invalidate(goalsProvider);
@@ -95,6 +113,23 @@ class CockpitScreen extends ConsumerWidget {
             ),
           ],
         ),
+      )
+                : ref.watch(globalSearchProvider).when(
+                      loading: () => const Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularProgressIndicator(),
+                            SizedBox(height: 12),
+                            Text('Mencari di data lokal…'),
+                          ],
+                        ),
+                      ),
+                      error: (e, _) => Center(child: Text('Pencarian gagal: $e')),
+                      data: (result) => GlobalSearchResults(result: result),
+                    ),
+          ),
+        ],
       ),
     );
   }

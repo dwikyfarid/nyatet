@@ -49,11 +49,69 @@ class GoalsScreen extends ConsumerWidget {
               ),
             );
           }
-          return ListView.separated(
+          final filter = ref.watch(goalFilterProvider);
+          final sort = ref.watch(goalSortProvider);
+          final filtered = list.where((g) {
+            return switch (filter) {
+              GoalFilter.all => true,
+              GoalFilter.achieved => g.achieved,
+              GoalFilter.active => !g.achieved,
+            };
+          }).toList();
+          if (sort == GoalSort.name) {
+            filtered.sort((a, b) => a.goal.name.compareTo(b.goal.name));
+          }
+          return Column(
+            children: [
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    for (final f in GoalFilter.values)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: FilterChip(
+                          label: Text(switch (f) {
+                            GoalFilter.all => 'Semua tujuan',
+                            GoalFilter.achieved => 'Tercapai',
+                            GoalFilter.active => 'Aktif',
+                          }),
+                          selected: filter == f,
+                          onSelected: (_) =>
+                              ref.read(goalFilterProvider.notifier).state = f,
+                        ),
+                      ),
+                    DropdownButton<GoalSort>(
+                      value: sort,
+                      items: const [
+                        DropdownMenuItem(
+                          value: GoalSort.dueDate,
+                          child: Text('Tenggat terdekat'),
+                        ),
+                        DropdownMenuItem(
+                          value: GoalSort.name,
+                          child: Text('Nama A–Z'),
+                        ),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) {
+                          ref.read(goalSortProvider.notifier).state = v;
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: ListView.separated(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-            itemCount: list.length,
+            itemCount: filtered.length,
             separatorBuilder: (_, __) => const SizedBox(height: 12),
-            itemBuilder: (context, i) => _GoalCard(progress: list[i]),
+            itemBuilder: (context, i) => _GoalCard(progress: filtered[i]),
+                ),
+              ),
+            ],
           );
         },
       ),

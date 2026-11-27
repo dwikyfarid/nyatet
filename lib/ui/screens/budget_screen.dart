@@ -85,6 +85,28 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                   onChanged: (v) => setState(() => _query = v),
                 ),
               ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    FilterChip(
+                      label: const Text('Status: aktif'),
+                      selected: !ref.watch(budgetShowInactiveProvider),
+                      onSelected: (_) => ref
+                          .read(budgetShowInactiveProvider.notifier)
+                          .state = false,
+                    ),
+                    const SizedBox(width: 8),
+                    FilterChip(
+                      label: const Text('Nonaktif'),
+                      selected: ref.watch(budgetShowInactiveProvider),
+                      onSelected: (_) => ref
+                          .read(budgetShowInactiveProvider.notifier)
+                          .state = true,
+                    ),
+                  ],
+                ),
+              ),
               if (!isAdmin)
                 const Padding(
                   padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
