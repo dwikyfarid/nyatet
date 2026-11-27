@@ -3,6 +3,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
+import '../config/dev_tools.dart';
 import '../data/database/app_database.dart';
 import '../data/repository/draft_repository.dart';
 import '../data/repository/transaction_repository.dart';
@@ -15,6 +16,9 @@ import '../update/apk_bridge.dart';
 import '../update/github_api.dart';
 import '../update/update_models.dart';
 import '../update/update_service.dart';
+
+/// D-47: status alat uji (Menu pengujian). Bisa di-override di widget test.
+final devToolsEnabledProvider = Provider<bool>((ref) => kDevToolsEnabled);
 
 /// Database tunggal selama aplikasi hidup.
 final databaseProvider = Provider<AppDatabase>((ref) {
