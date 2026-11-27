@@ -4,6 +4,17 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id/1.1.0/).
 Versi mengikuti `x.y.z+build` di `pubspec.yaml`, dengan `build` = versionCode Android.
 Bagian teratas berkas ini dipakai otomatis sebagai catatan rilis GitHub.
 
+## v0.1.0+3 — 2026-11-28
+
+### Diperbaiki
+- **D-47:** "Menu pengujian" (ganti sesi jadi admin tanpa login, muat 200 transaksi uji) tidak lagi muncul di build rilis. Gerbang `!kReleaseMode` membuatnya tidak dirender, dan `--dart-define=DEV_TOOLS` tidak bisa mengaktifkannya; `libapp.so` terbukti identik untuk `DEV_TOOLS=true` dan `false` pada kedua flavor.
+- **F7/D-48:** layar alokasi menampilkan terpakai, persen, dan bar.
+
+### Catatan teknis
+- versionName tetap `0.1.0`, versionCode `3`.
+- Dua flavor: `sideload` (cek pembaruan GitHub) dan `play` (tanpa cek pembaruan, untuk Play Store).
+- Pemasang `v0.1.0` dan `v0.1.0+2` silakan perbarui ke versi ini; keduanya ditarik (pre-release sebelum perbaikan migrasi, dan `+2` masih memuat Menu pengujian).
+
 ## v0.1.0+2 — belum dirilis
 
 Menunggu PR #2 lulus QA.
