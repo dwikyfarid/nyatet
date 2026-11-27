@@ -11,11 +11,19 @@ import 'package:nyatet/ui/screens/cockpit_screen.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('D-47: default build uji mengaktifkan alat uji, rilis tidak', () {
+  test('D-47: release + DEV_TOOLS=true tetap menonaktifkan alat uji', () {
+    // Inti gate: kReleaseMode menang atas flag apa pun.
+    expect(
+      resolveDevToolsEnabled(releaseMode: true, flag: true),
+      isFalse,
+      reason: 'build rilis tidak boleh punya jalur ganti sesi admin',
+    );
+    expect(resolveDevToolsEnabled(releaseMode: true, flag: false), isFalse);
+    // Build non-rilis tetap boleh memakai alat uji.
+    expect(resolveDevToolsEnabled(releaseMode: false, flag: true), isTrue);
+    expect(resolveDevToolsEnabled(releaseMode: false, flag: false), isFalse);
     // Uji berjalan dalam mode debug.
     expect(kDevToolsEnabled, isTrue);
-    // Konstanta default-nya kDebugMode: saat kDebugMode=false (release) nilai
-    // ini false, sehingga jalur menu tidak ada di build rilis.
   });
 
   testWidgets('D-47: menu tidak dirender saat alat uji dimatikan',
