@@ -192,6 +192,15 @@ final allocationRowsProvider = FutureProvider<List<Budget>>((ref) {
   return repo.allocationsFor(ref.watch(selectedMonthProvider));
 });
 
+/// F7: terpakai per kategori pada bulan terpilih (keranjang `terpakai` saja).
+final categorySpendProvider = FutureProvider<Map<String, double>>((ref) async {
+  final service = ref.watch(reportServiceProvider);
+  final policy = ref.watch(accessPolicyProvider);
+  final month = DateTime.parse('${ref.watch(selectedMonthProvider)}-01');
+  final groups = await service.byCategory(policy, month, Basket.terpakai);
+  return {for (final g in groups) g.id: g.total};
+});
+
 final goalsProvider = FutureProvider<List<GoalProgress>>((ref) {
   final repo = ref.watch(allocationRepositoryProvider);
   return repo.goalsWithProgress(ref.watch(accessPolicyProvider));

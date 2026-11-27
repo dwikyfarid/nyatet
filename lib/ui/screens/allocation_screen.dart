@@ -138,10 +138,31 @@ class _AllocationRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final spent = ref.watch(categorySpendProvider).maybeWhen(
+          data: (m) => m[category.id] ?? 0,
+          orElse: () => 0.0,
+        );
+    final alloc = allocation ?? 0;
+    final ratio = allocationRatio(spent, alloc);
     return ListTile(
       contentPadding: EdgeInsets.zero,
       title: Text(category.name),
-      subtitle: Text(labelTipe(category.type)),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(labelTipe(category.type)),
+          const SizedBox(height: 4),
+          Text(allocationSpendLabel(spent, alloc)),
+          const SizedBox(height: 4),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: ratio,
+              minHeight: 6,
+            ),
+          ),
+        ],
+      ),
       trailing: Text(
         allocation == null
             ? 'Belum dialokasikan'
