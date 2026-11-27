@@ -162,6 +162,22 @@ class DevSeeder {
     return rows.length;
   }
 
+  /// F13 demo web: kosongkan data demo lalu isi ulang 200 transaksi.
+  /// Hanya menyentuh tabel demo di database browser.
+  Future<int> resetDemo() async {
+    await _db.transaction(() async {
+      await _db.delete(_db.transactions).go();
+      await _db.delete(_db.transactionDrafts).go();
+      await _db.delete(_db.budgets).go();
+      await _db.delete(_db.goals).go();
+      await _db.delete(_db.members).go();
+      await _db.delete(_db.syncQueue).go();
+      await _db.delete(_db.auditLogs).go();
+      await _db.delete(_db.categories).go();
+    });
+    return seedTransactions();
+  }
+
   Future<void> _seedMembers() async {
     final existing = await _db.select(_db.members).get();
     final have = existing.map((m) => m.email).toSet();

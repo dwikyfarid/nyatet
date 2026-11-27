@@ -65,3 +65,6 @@ android/app/google-services.json
 
 # Artefak build lokal (APK tidak di-commit)
 /artifacts/
+
+# Build web demo (F13)
+/build/

@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart' show OrderingTerm;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
@@ -15,6 +16,9 @@ import '../update/apk_bridge.dart';
 import '../update/github_api.dart';
 import '../update/update_models.dart';
 import '../update/update_service.dart';
+
+/// True pada build web demo (F13): tanpa login, backend, maupun sinkronisasi.
+final webDemoProvider = Provider<bool>((ref) => kIsWeb);
 
 /// Database tunggal selama aplikasi hidup.
 final databaseProvider = Provider<AppDatabase>((ref) {
