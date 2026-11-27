@@ -7,12 +7,17 @@ Bagian teratas berkas ini dipakai otomatis sebagai catatan rilis GitHub.
 ## v0.1.0+3 — 2026-11-28
 
 ### Diperbaiki
-- **D-47:** "Menu pengujian" (ganti sesi jadi admin tanpa login, muat 200 transaksi uji) tidak lagi muncul di build rilis. Gerbang `!kReleaseMode` membuatnya tidak dirender, dan `--dart-define=DEV_TOOLS` tidak bisa mengaktifkannya; `libapp.so` terbukti identik untuk `DEV_TOOLS=true` dan `false` pada kedua flavor.
-- **F7/D-48:** layar alokasi menampilkan terpakai, persen, dan bar.
+- **D-47 / D-51 — alat uji tidak dirender di build rilis.** "Menu pengujian" (ganti sesi jadi admin tanpa login, muat 200 transaksi uji) digerbang `!kReleaseMode`; `--dart-define=DEV_TOOLS` tidak bisa mengaktifkannya. Bukti artefak: `libapp.so` identik untuk `DEV_TOOLS=true` dan `false` pada kedua flavor; QA mengonfirmasi 0 elemen menu uji di perangkat.
+- **D-48 / F7 — layar alokasi** menampilkan terpakai, persen, dan bar.
+
+### Ditambahkan
+- **D-45 — tautan legal satu perilaku.** Selama URL belum terbit, barisnya nonaktif dengan alasan yang terlihat; browser hanya dibuka setelah URL diisi. Tidak memakai flag build.
+- **D-53 — cek pembaruan.** Pemeriksaan otomatis paling sering sekali per 24 jam; cek manual dari layar Pengaturan tidak menunggu jeda itu.
+- Dua flavor build: `sideload` (cek pembaruan lewat GitHub Releases) dan `play` (tanpa cek pembaruan, untuk Play Store).
 
 ### Catatan teknis
 - versionName tetap `0.1.0`, versionCode `3`.
-- Dua flavor: `sideload` (cek pembaruan GitHub) dan `play` (tanpa cek pembaruan, untuk Play Store).
+- Upgrade dari versionCode 1/2 ke 3 tanpa uninstall sudah diuji (migrasi skema, angka tetap sama).
 - Pemasang `v0.1.0` dan `v0.1.0+2` silakan perbarui ke versi ini; keduanya ditarik (pre-release sebelum perbaikan migrasi, dan `+2` masih memuat Menu pengujian).
 
 ## v0.1.0+2 — belum dirilis
