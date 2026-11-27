@@ -5,11 +5,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:nyatet/config/app_links.dart';
-import 'package:nyatet/update/apk_bridge.dart';
-import 'package:nyatet/update/github_api.dart';
 import 'package:nyatet/ui/legal_links.dart';
 import 'package:nyatet/ui/providers.dart';
 import 'package:nyatet/ui/screens/settings_screen.dart';
+import 'package:nyatet/update/apk_bridge.dart';
+import 'package:nyatet/update/github_api.dart';
 import 'package:nyatet/update/update_models.dart';
 import 'package:nyatet/update/update_service.dart';
 
@@ -18,51 +18,67 @@ class _Offline implements NetworkProbe {
   Future<bool> isOnline() async => false;
 }
 
+class _NoopBridge implements ApkBridge {
+  @override
+  Future<ApkInspection> inspect(String path) async => const ApkInspection(
+        packageName: '',
+        installedPackageName: '',
+        signatureSha256: '',
+        installedSignatureSha256: '',
+      );
+
+  @override
+  Future<bool> openInstaller(String path) async => false;
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   final installed = InstalledVersion(versionName: '0.1.0', versionCode: 2);
 
-  UpdateService service(UpdateStore store) => UpdateService(
+  UpdateService service() => UpdateService(
         api: GitHubUpdateApi(
           client: MockClient((_) async => http.Response('{}', 404)),
         ),
         bridge: _NoopBridge(),
         installedVersion: () async => installed,
-        store: store,
+        store: InMemoryUpdateStore(),
         network: _Offline(),
       );
 
-  test('P3: URL kosong → tautan nonaktif dengan alasan', () {
-    final state = LegalLinkState.resolve('  ', live: true);
+  test('D-45: URL kosong → disabled dengan alasan "Halaman belum terbit"', () {
+    final state = LegalLinkState.resolve('');
+    expect(state.action, LegalLinkAction.disabled);
     expect(state.enabled, isFalse);
-    expect(state.reason, contains('belum diisi'));
+    expect(state.reason, 'Halaman belum terbit');
   });
 
-  test('P3: URL bukan http/https → nonaktif', () {
-    expect(LegalLinkState.resolve('/privasi', live: true).enabled, isFalse);
-    expect(LegalLinkState.resolve('ftp://x/y', live: true).enabled, isFalse);
+  test('D-45: URL bukan http/https → disabled', () {
+    expect(LegalLinkState.resolve('/privasi').action, LegalLinkAction.disabled);
+    expect(LegalLinkState.resolve('ftp://x/y').action, LegalLinkAction.disabled);
   });
 
-  test('P3: LINKS_LIVE=true membuka browser lewat intent', () async {
+  test('D-45: URL terisi → openBrowser dan launcher dipanggil dengan URI itu',
+      () async {
+    const url = 'https://nyatet.app/privasi';
+    expect(LegalLinkState.resolve(url).action, LegalLinkAction.openBrowser);
+
     Uri? opened;
     final ok = await openLegalUrl(
-      AppLinks.privacyPolicy,
-      live: true,
+      url,
       launcher: (uri) async {
         opened = uri;
         return true;
       },
     );
     expect(ok, isTrue);
-    expect(opened, Uri.parse('https://nyatet.app/privasi'));
+    expect(opened, Uri.parse(url));
   });
 
-  test('P3: LINKS_LIVE=false tidak memanggil launcher sama sekali', () async {
+  test('D-45: tautan nonaktif tidak memanggil launcher', () async {
     var calls = 0;
     final ok = await openLegalUrl(
-      AppLinks.privacyPolicy,
-      live: false,
+      '',
       launcher: (_) async {
         calls++;
         return true;
@@ -70,48 +86,9 @@ void main() {
     );
     expect(ok, isFalse);
     expect(calls, 0);
-    expect(
-      LegalLinkState.resolve(AppLinks.privacyPolicy, live: false).reason,
-      contains('belum terbit'),
-    );
   });
 
-  testWidgets('P3: LINKS_LIVE=true → kedua tautan memanggil browser dengan URL-nya',
-      (tester) async {
-    final opened = <Uri>[];
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          updateEnabledProvider.overrideWithValue(false),
-          installedVersionProvider.overrideWith((ref) async => installed),
-          updateServiceProvider.overrideWithValue(service(InMemoryUpdateStore())),
-          linksLiveProvider.overrideWithValue(true),
-          legalLauncherProvider.overrideWithValue((uri) async {
-            opened.add(uri);
-            return true;
-          }),
-        ],
-        child: const MaterialApp(home: SettingsScreen()),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.byIcon(Icons.open_in_new), findsNWidgets(2));
-
-    await tester.tap(find.text('Kebijakan privasi'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Hapus data akun'));
-    await tester.pumpAndSettle();
-
-    expect(opened, [
-      Uri.parse(AppLinks.privacyPolicy),
-      Uri.parse(AppLinks.deleteData),
-    ]);
-    // Tidak pindah layar: browser yang dibuka, bukan halaman in-app.
-    expect(find.text('Pengaturan'), findsOneWidget);
-  });
-
-  testWidgets('P3: LINKS_LIVE=false → pemberitahuan jujur, tanpa launcher',
+  testWidgets('D-45: Pengaturan menampilkan baris nonaktif saat URL kosong',
       (tester) async {
     var calls = 0;
     await tester.pumpWidget(
@@ -119,8 +96,7 @@ void main() {
         overrides: [
           updateEnabledProvider.overrideWithValue(false),
           installedVersionProvider.overrideWith((ref) async => installed),
-          updateServiceProvider.overrideWithValue(service(InMemoryUpdateStore())),
-          linksLiveProvider.overrideWithValue(false),
+          updateServiceProvider.overrideWithValue(service()),
           legalLauncherProvider.overrideWithValue((_) async {
             calls++;
             return true;
@@ -131,22 +107,25 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Kebijakan privasi'));
-    await tester.pumpAndSettle();
+    // AppLinks.* kosong sampai halaman terbit.
+    expect(AppLinks.privacyPolicy, isEmpty);
+    expect(find.text('Kebijakan privasi'), findsOneWidget);
+    expect(find.text('Hapus data akun'), findsOneWidget);
+    expect(find.text('Halaman belum terbit'), findsNWidgets(2));
+    expect(find.byIcon(Icons.open_in_new), findsNothing);
 
-    expect(calls, 0);
-    expect(find.textContaining('Halaman belum terbit'), findsOneWidget);
+    await tester.tap(find.text('Kebijakan privasi'), warnIfMissed: false);
+    await tester.pumpAndSettle();
+    expect(calls, 0, reason: 'baris nonaktif tidak memanggil browser');
   });
 
-  testWidgets('P2: build play tidak pernah membangun layanan update', (tester) async {
-    // Kalau ada kode build play yang membaca penyedia ini, uji gagal — itu
-    // berarti permintaan ke api.github.com mungkin terjadi.
+  testWidgets('P2: build play tidak pernah membangun layanan update',
+      (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           updateEnabledProvider.overrideWithValue(false),
-          installedVersionProvider
-              .overrideWith((ref) async => installed),
+          installedVersionProvider.overrideWith((ref) async => installed),
           updateServiceProvider.overrideWith(
             (ref) => throw StateError(
               'Layanan update tidak boleh dibuat pada build play',
@@ -162,17 +141,4 @@ void main() {
     expect(find.textContaining('Terakhir dicek'), findsNothing);
     expect(tester.takeException(), isNull);
   });
-}
-
-class _NoopBridge implements ApkBridge {
-  @override
-  Future<ApkInspection> inspect(String path) async => const ApkInspection(
-        packageName: '',
-        installedPackageName: '',
-        signatureSha256: '',
-        installedSignatureSha256: '',
-      );
-
-  @override
-  Future<bool> openInstaller(String path) async => false;
 }

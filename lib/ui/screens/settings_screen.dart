@@ -204,9 +204,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 }
 
 
-/// Satu baris tautan legal. `LINKS_LIVE=true` → buka browser (intent
-/// ACTION_VIEW) dengan URL dari [AppLinks]; selain itu ketukan hanya memberi
-/// pemberitahuan jujur, bukan halaman in-app.
+/// Satu baris tautan legal (D-45). URL kosong → baris nonaktif dengan alasan;
+/// URL terisi → membuka browser lewat intent ACTION_VIEW.
 class _LegalRow extends ConsumerWidget {
   const _LegalRow({
     required this.icon,
@@ -220,27 +219,17 @@ class _LegalRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final live = ref.watch(linksLiveProvider);
-    final state = LegalLinkState.resolve(url, live: live);
-    final shownUrl = url.trim().isEmpty ? 'Tautan belum diisi' : url;
+    final state = LegalLinkState.resolve(url);
 
     return ListTile(
       leading: Icon(icon),
       title: Text(title),
-      subtitle: Text(state.enabled ? shownUrl : (state.reason ?? shownUrl)),
-      trailing: state.action == LegalLinkAction.openBrowser
-          ? const Icon(Icons.open_in_new)
-          : null,
+      subtitle: Text(state.enabled ? url : (state.reason ?? 'Halaman belum terbit')),
+      trailing: state.enabled ? const Icon(Icons.open_in_new) : null,
       enabled: state.enabled,
       onTap: !state.enabled
           ? null
           : () async {
-              if (state.action == LegalLinkAction.showPendingNotice) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(state.reason ?? kLinksPendingMessage)),
-                );
-                return;
-              }
               final opened =
                   await ref.read(legalLauncherProvider)(Uri.parse(url.trim()));
               if (!opened && context.mounted) {
