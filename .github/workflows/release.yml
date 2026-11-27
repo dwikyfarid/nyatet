@@ -212,7 +212,7 @@ jobs:
             echo "| Berkas | Ukuran | SHA-256 |"
             echo "|---|---|---|"
             while read -r hash file; do
-              size=$(wc -c < "$file" | tr -d ' ')
+              size=$(wc -c < "dist/$file" | tr -d ' ')
               echo "| \`$(basename "$file")\` | $size byte | \`$hash\` |"
             done < sha256.txt
             echo

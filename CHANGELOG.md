@@ -4,7 +4,17 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id/1.1.0/).
 Versi mengikuti `x.y.z+build` di `pubspec.yaml`, dengan `build` = versionCode Android.
 Bagian teratas berkas ini dipakai otomatis sebagai catatan rilis GitHub.
 
-## v0.1.0+2 — belum dirilis
+## v0.1.0+3 — 2026-11-28
+
+Rilis pertama lewat GitHub Releases sejak v0.1.0. Sudah mencakup semua perubahan v0.1.0+2 (tidak dirilis terpisah).
+
+### Diperbaiki
+- Menu pengujian (ganti sesi admin/anggota, muat data uji) tidak lagi ikut di build rilis (D-47).
+
+### Ditambahkan
+- Layar alokasi menampilkan dana terpakai, persentase, dan bar per alokasi (F7, D-48).
+
+## v0.1.0+2 — digabung ke v0.1.0+3
 
 Menunggu PR #2 lulus QA.
 
