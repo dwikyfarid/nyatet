@@ -235,4 +235,45 @@ void main() {
     expect(labelFor(noAllocation), startsWith('kurang Rp'));
     expect(labelFor(done), 'tercapai');
   });
+
+  test('D-36: tujuan diurutkan tenggat terdekat, tanpa tenggat di akhir, nama',
+      () async {
+    final tanpaTenggatB = await allocations.createGoal(
+      policy: admin,
+      name: 'B Tanpa Tenggat',
+      targetAmount: 1000000,
+      monthlyAllocation: 100000,
+    );
+    final tanpaTenggatA = await allocations.createGoal(
+      policy: admin,
+      name: 'A Tanpa Tenggat',
+      targetAmount: 1000000,
+      monthlyAllocation: 100000,
+    );
+    final jauh = await allocations.createGoal(
+      policy: admin,
+      name: 'Jauh',
+      targetAmount: 1000000,
+      monthlyAllocation: 100000,
+      dueDate: DateTime(2027, 12, 1),
+    );
+    final dekat = await allocations.createGoal(
+      policy: admin,
+      name: 'Dekat',
+      targetAmount: 1000000,
+      monthlyAllocation: 100000,
+      dueDate: DateTime(2027, 1, 5),
+    );
+
+    final list = await allocations.goalsWithProgress(admin);
+    expect(
+      list.map((g) => g.goal.name).toList(),
+      ['Dekat', 'Jauh', 'A Tanpa Tenggat', 'B Tanpa Tenggat'],
+    );
+    // Kolom yang tidak ada di Sheet tidak boleh dipakai untuk urutan.
+    expect(list.map((g) => g.goal.id), contains(dekat));
+    expect(list.map((g) => g.goal.id), contains(jauh));
+    expect(list.map((g) => g.goal.id), contains(tanpaTenggatA));
+    expect(list.map((g) => g.goal.id), contains(tanpaTenggatB));
+  });
 }

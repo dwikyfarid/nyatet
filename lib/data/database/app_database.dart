@@ -127,7 +127,8 @@ class Goals extends Table {
   RealColumn get monthlyAllocation => real()();
   /// `active` | `done` — status manual dari Sheet.
   TextColumn get status => text().withDefault(const Constant('active'))();
-  DateTimeColumn get createdAt => dateTime()();
+  // Tidak ada createdAt: Sheet tidak punya kolomnya (D-36). Urutan daftar
+  // memakai tenggat, bukan tanggal dibuat.
   DateTimeColumn get updatedAt => dateTime()();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
 
@@ -248,7 +249,7 @@ class AppDatabase extends _$AppDatabase {
   factory AppDatabase.memory() => AppDatabase(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -258,33 +259,83 @@ class AppDatabase extends _$AppDatabase {
           if (from < 3) {
             // D-22: kolom penanda delta + enum budget + bentuk goals Sheet.
             await m.addColumn(members, members.id);
-            await m.addColumn(members, members.updatedAt);
-            await m.addColumn(categories, categories.updatedAt);
-            await m.addColumn(budgets, budgets.updatedAt);
             await m.addColumn(configParsers, configParsers.appName);
             await m.addColumn(configParsers, configParsers.isActive);
-            await m.addColumn(configParsers, configParsers.updatedAt);
-            // goals: target_date -> due_date, + status, - category_id.
-            await m.alterTable(
-              TableMigration(
-                goals,
-                columnTransformer: {
-                  goals.dueDate: const CustomExpression<String>('target_date'),
-                },
-                newColumns: [goals.status],
-              ),
-            );
-            // config_parser.pattern boleh kosong.
-            await m.alterTable(TableMigration(configParsers));
-            await customStatement(
-              "UPDATE budgets SET type = 'alokasi' WHERE type = 'allocation'",
-            );
-            await customStatement(
-              "UPDATE budgets SET type = 'budget' WHERE type = 'limit'",
-            );
+            // `updated_at` TIDAK ditambahkan lewat addColumn: drift memakai
+            // default `currentDateAndTime` (ekspresi), dan SQLite menolak
+            // "Cannot add a column with non-constant default" — inilah crash
+            // upgrade. Tambahkan sebagai kolom biasa lalu isi ulang.
+            for (final table in [
+              'members',
+              'categories',
+              'budgets',
+              'config_parsers',
+            ]) {
+              await customStatement(
+                'ALTER TABLE $table ADD COLUMN updated_at INTEGER',
+              );
+            }
+            // Baris lama berisi NULL setelah ADD COLUMN; mapping drift akan
+            // crash kalau tidak diisi (D-32).
+            for (final table in [
+              'members',
+              'categories',
+              'budgets',
+              'config_parsers',
+            ]) {
+              await customStatement(
+                'UPDATE $table SET updated_at = CAST(strftime(\'%s\', \'now\') '
+                'AS INTEGER) WHERE updated_at IS NULL',
+              );
+            }
           }
+          // Idempoten: berlaku untuk semua jalur upgrade (v2 maupun v3).
+          await customStatement(
+            "UPDATE budgets SET type = 'alokasi' WHERE type = 'allocation'",
+          );
+          await customStatement(
+            "UPDATE budgets SET type = 'budget' WHERE type = 'limit'",
+          );
+          // v2: goals.target_date + category_id; v3: due_date + status +
+          // created_at; v4: tanpa created_at (D-36). Dibangun ulang dengan SQL
+          // eksplisit supaya migrasi tidak bergantung pada kolom lama yang
+          // sudah dihapus dari model drift.
+          if (from < 4) await _rebuildGoals(from);
         },
       );
+
+  /// Bangun ulang tabel `goals` ke bentuk terbaru (v4).
+  /// Nilai `due_date` diambil dari `target_date` pada basis data v2.
+  Future<void> _rebuildGoals(int from) async {
+    final hasTargetDate = from < 3;
+    // Sisa percobaan migrasi sebelumnya tidak boleh menghalangi upgrade.
+    await customStatement('DROP TABLE IF EXISTS goals_old');
+    await customStatement('ALTER TABLE goals RENAME TO goals_old');
+    await customStatement('''
+      CREATE TABLE goals (
+        id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        target_amount REAL NOT NULL,
+        due_date INTEGER NULL,
+        monthly_allocation REAL NOT NULL,
+        status TEXT NOT NULL DEFAULT 'active',
+        updated_at INTEGER NOT NULL DEFAULT (CAST(strftime('%s', 'now') AS INTEGER)),
+        is_deleted INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (id)
+      )
+    ''');
+    final dueSource = hasTargetDate ? 'target_date' : 'due_date';
+    final statusSource = hasTargetDate ? "'active'" : 'status';
+    await customStatement('''
+      INSERT INTO goals
+        (id, name, target_amount, due_date, monthly_allocation, status,
+         updated_at, is_deleted)
+      SELECT id, name, target_amount, $dueSource, monthly_allocation,
+             $statusSource, updated_at, is_deleted
+      FROM goals_old
+    ''');
+    await customStatement('DROP TABLE goals_old');
+  }
 
   static const String _keyLastPullAt = 'last_pull_at';
 
@@ -315,6 +366,8 @@ class AppDatabase extends _$AppDatabase {
           id: const Uuid().v4(),
           name: c[0],
           type: c[1],
+          // Eksplisit: kolom hasil upgrade tidak punya default SQL (D-32).
+          updatedAt: Value(DateTime.now().toUtc()),
         ),
       );
     }

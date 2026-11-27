@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/database/app_database.dart';
-import '../../domain/access_policy.dart';
 import '../../domain/transaction_service.dart';
 import '../format.dart';
 import '../providers.dart';
@@ -48,45 +47,57 @@ Future<void> showTransactionDetail(
               Text('Teks asli: ${txn.rawText}'),
             ],
             const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: editDecision.allowed
-                        ? () {
-                            Navigator.of(ctx).pop();
-                            editTransaction(context, ref, txn);
-                          }
-                        : () => _explain(ctx, editDecision),
-                    icon: const Icon(Icons.edit_outlined),
-                    label: const Text('Edit transaksi'),
+            // Aksi yang pasti ditolak tidak ditampilkan sebagai tombol mati:
+            // alasannya ditulis di tempat, bukan hilang di balik sheet.
+            for (final reason in {
+              if (!editDecision.allowed) editDecision.reason,
+              if (!deleteDecision.allowed) deleteDecision.reason,
+            })
+              if (reason != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.lock_outline, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(reason)),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: deleteDecision.allowed
-                        ? () {
-                            Navigator.of(ctx).pop();
-                            deleteTransaction(context, ref, txn);
-                          }
-                        : () => _explain(ctx, deleteDecision),
-                    icon: const Icon(Icons.delete_outline),
-                    label: const Text('Hapus transaksi'),
-                  ),
-                ),
-              ],
-            ),
+            if (editDecision.allowed || deleteDecision.allowed)
+              Row(
+                children: [
+                  if (editDecision.allowed)
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.of(ctx).pop();
+                          editTransaction(context, ref, txn);
+                        },
+                        icon: const Icon(Icons.edit_outlined),
+                        label: const Text('Edit transaksi'),
+                      ),
+                    ),
+                  if (editDecision.allowed && deleteDecision.allowed)
+                    const SizedBox(width: 12),
+                  if (deleteDecision.allowed)
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.of(ctx).pop();
+                          deleteTransaction(context, ref, txn);
+                        },
+                        icon: const Icon(Icons.delete_outline),
+                        label: const Text('Hapus transaksi'),
+                      ),
+                    ),
+                ],
+              ),
           ],
         ),
       ),
     ),
-  );
-}
-
-void _explain(BuildContext ctx, AccessDecision decision) {
-  ScaffoldMessenger.of(ctx).showSnackBar(
-    SnackBar(content: Text(decision.reason ?? 'Aksi tidak diizinkan')),
   );
 }
 
@@ -148,7 +159,6 @@ Future<void> editTransaction(
           categoryId: txn.categoryId,
           note: txn.note,
         );
-    ref.invalidate(visibleTransactionsProvider);
     _refreshReports(ref);
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -194,7 +204,6 @@ Future<void> deleteTransaction(
           policy: ref.read(accessPolicyProvider),
           txn: txn,
         );
-    ref.invalidate(visibleTransactionsProvider);
     _refreshReports(ref);
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -209,8 +218,4 @@ Future<void> deleteTransaction(
   }
 }
 
-void _refreshReports(WidgetRef ref) {
-  ref.invalidate(cashSummaryProvider);
-  ref.invalidate(unallocatedProvider);
-  ref.invalidate(goalsProvider);
-}
+void _refreshReports(WidgetRef ref) => ref.refreshMoneyProviders();

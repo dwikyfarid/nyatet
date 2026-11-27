@@ -9,6 +9,7 @@ import '../format.dart';
 import '../../home_shell.dart';
 import '../providers.dart';
 import 'draft_queue_screen.dart';
+import 'settings_screen.dart';
 import 'drilldown_screen.dart';
 
 /// L2 — Beranda cockpit (F8): 4 keranjang D-17, alokasi teratas, tujuan,
@@ -34,6 +35,15 @@ class CockpitScreen extends ConsumerWidget {
             label: Text(monthLabel(month)),
             onPressed: () => _pickMonth(context, ref),
           ),
+          IconButton(
+            tooltip: 'Pengaturan',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const SettingsScreen(),
+              ),
+            ),
+            icon: const Icon(Icons.settings_outlined),
+          ),
           const DevMenu(),
         ],
       ),
@@ -44,7 +54,9 @@ class CockpitScreen extends ConsumerWidget {
           ref.invalidate(allocationRowsProvider);
         },
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+          // 88 = tinggi FAB (56) + margin (16) + 16: cukup agar kartu terakhir
+          // tidak tertutup FAB, tanpa menambah tinggi isi sampai perlu digulir.
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
           children: [
             summary.when(
               loading: () => const _SkeletonCard(),

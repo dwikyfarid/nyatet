@@ -209,8 +209,7 @@ class _DraftCard extends ConsumerWidget {
   }
 
   void _refresh(WidgetRef ref) {
-    ref.invalidate(draftQueueProvider);
-    ref.invalidate(pendingDraftsProvider);
+    ref.refreshMoneyProviders();
   }
 
   Future<void> _save(BuildContext context, WidgetRef ref) async {
@@ -219,7 +218,7 @@ class _DraftCard extends ConsumerWidget {
         .read(draftRepositoryProvider)
         .save(draft.id, memberEmail: session.email);
     _refresh(ref);
-    ref.invalidate(visibleTransactionsProvider);
+    ref.refreshMoneyProviders();
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

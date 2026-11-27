@@ -185,7 +185,6 @@ GoalsCompanion goalFromMap(Map<String, Object?> m) => GoalsCompanion(
             : parseDateOnly(m['due_date']! as String),
       ),
       status: Value((m['status'] as String?) ?? 'active'),
-      createdAt: Value(_parseIso(m['updated_at']) ?? DateTime.now().toUtc()),
       updatedAt: Value(_parseIso(m['updated_at']) ?? DateTime.now().toUtc()),
       isDeleted: Value((m['is_deleted'] as bool?) ?? false),
     );

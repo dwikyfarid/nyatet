@@ -47,8 +47,21 @@ class AccessPolicy {
 
   AccessDecision canCreate() => const AccessDecision.allow();
 
+  /// Transaksi yang mengubah dana tujuan (D-23). Koreksi hanya oleh admin
+  /// supaya progres tujuan tidak bisa diturunkan diam-diam oleh anggota.
+  static const Set<String> goalTransactionTypes = {
+    TransactionType.goalDeposit,
+    TransactionType.goalWithdrawal,
+  };
+
+  static const String goalCorrectionReason =
+      'Setoran tujuan hanya bisa dikoreksi admin.';
+
   AccessDecision canEdit(Transaction t) {
     if (isAdmin) return const AccessDecision.allow();
+    if (goalTransactionTypes.contains(t.type)) {
+      return const AccessDecision.deny(goalCorrectionReason);
+    }
     if (t.memberEmail != email) {
       return const AccessDecision.deny('Hanya transaksi sendiri yang bisa diedit');
     }
@@ -64,6 +77,10 @@ class AccessPolicy {
 
   AccessDecision canDelete(Transaction t) {
     if (isAdmin) return const AccessDecision.allow();
+    // D-23: alasan khusus untuk transaksi tujuan, bukan pesan umum.
+    if (goalTransactionTypes.contains(t.type)) {
+      return const AccessDecision.deny(goalCorrectionReason);
+    }
     return const AccessDecision.deny('Anggota tidak bisa menghapus transaksi');
   }
 

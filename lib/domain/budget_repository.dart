@@ -23,12 +23,15 @@ class CategoryBudgetStatus {
   final Category category;
   final double limit;
 
+  /// Hanya kategori pengeluaran yang punya budget (D-34).
+  bool get isExpense => category.type == TransactionType.outFlow;
+
   /// Konsumsi (`type = out`) kategori ini pada bulan berjalan.
   final double spent;
 
   double get ratio => limit <= 0 ? 0 : spent / limit;
 
-  bool get hasBudget => limit > 0;
+  bool get hasBudget => isExpense && limit > 0;
 
   BudgetLevel get level {
     if (!hasBudget) return BudgetLevel.aman;
@@ -38,19 +41,23 @@ class CategoryBudgetStatus {
   }
 
   /// Selalu teks persen + panah (UX-01: warna tidak boleh jadi satu-satunya
-  /// penanda). ▲ = mendekati/melewati batas, ▼ = masih jauh di bawah.
+  /// penanda). D-11 mengunci arti panah: ▲ = masuk, ▼ = keluar. Baris budget
+  /// adalah kategori pengeluaran, jadi panahnya selalu ▼; tingkat bahaya
+  /// ditulis sebagai teks ("mendekati batas"/"melewati batas") + warna.
   String get percentLabel {
+    if (!isExpense) return 'tanpa budget';
     if (!hasBudget) return 'belum ada budget';
     final pct = (ratio * 100).round();
-    final arrow = level == BudgetLevel.aman ? '▼' : '▲';
-    return '$pct% $arrow';
+    return '$pct% ▼';
   }
 
-  String get levelLabel => switch (level) {
-        BudgetLevel.aman => 'aman',
-        BudgetLevel.waspada => 'mendekati batas',
-        BudgetLevel.lewat => 'melewati batas',
-      };
+  String get levelLabel => !isExpense
+      ? 'masuk · tanpa budget'
+      : switch (level) {
+          BudgetLevel.aman => 'aman',
+          BudgetLevel.waspada => 'mendekati batas',
+          BudgetLevel.lewat => 'melewati batas',
+        };
 
   String get spentLabel => '${rupiah(spent)} / ${rupiah(limit)}';
 }
@@ -95,7 +102,11 @@ class BudgetRepository {
       for (final c in categories)
         CategoryBudgetStatus(
           category: c,
-          limit: limitByCategory[c.id] ?? 0,
+          limit: c.type == TransactionType.outFlow
+              ? (limitByCategory[c.id] ?? 0)
+              : 0,
+          // Kategori masuk tidak punya budget; angka "terpakai" tetap 0
+          // karena keranjang terpakai hanya berisi `out`.
           spent: spentByCategory[c.id] ?? 0,
         ),
     ];

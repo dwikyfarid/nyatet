@@ -10,10 +10,28 @@ import 'package:flutter/material.dart';
 import 'data/sync/sync_scheduler.dart';
 import 'home_shell.dart';
 import 'ui/providers.dart';
+import 'ui/widgets/update_dialog.dart';
 
-Future<void> main() async {
+/// Titik masuk default = build `sideload` (memuat cek update, REL-03).
+/// Build Play memakai `lib/main_play.dart` yang mematikan fitur ini (REL-04).
+/// Entrypoint default (dipakai `flutter run` dan build tanpa `-t`).
+/// Build Play WAJIB memakai `-t lib/main_play.dart`; lihat tooling/build_all.sh.
+Future<void> main() => bootstrap(enableUpdateChecker: true);
+
+Future<void> bootstrap({
+  required bool enableUpdateChecker,
+  String distribution = 'sideload',
+}) async {
   WidgetsFlutterBinding.ensureInitialized();
-  final container = ProviderContainer();
+  // D-38/REL-04: penanda build supaya QA bisa membuktikan APK mana yang
+  // terpasang (logcat: "Nyatet distribution=play").
+  debugPrint('Nyatet distribution=$distribution '
+      'updateChecker=$enableUpdateChecker');
+  final container = ProviderContainer(
+    overrides: [
+      updateEnabledProvider.overrideWithValue(enableUpdateChecker),
+    ],
+  );
   // Kategori awal supaya pemilihan kategori bisa dipakai offline (F6/F7).
   await container.read(databaseProvider).seedDefaultCategories();
   unawaited(registerBackgroundSync());
@@ -33,12 +51,39 @@ class NyatetApp extends ConsumerStatefulWidget {
 }
 
 class _NyatetAppState extends ConsumerState<NyatetApp> {
+  final _navigatorKey = GlobalKey<NavigatorState>();
+  final _messengerKey = GlobalKey<ScaffoldMessengerState>();
   StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
 
   @override
   void initState() {
     super.initState();
     _connectivitySub = registerConnectivityTrigger();
+    // REL-03: cek otomatis maks 1×/24 jam, tidak memblokir UI. Build `play`
+    // tidak pernah membaca layanan update.
+    if (ref.read(updateEnabledProvider)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _autoCheckUpdate());
+    }
+  }
+
+  Future<void> _autoCheckUpdate() async {
+    final service = ref.read(updateServiceProvider);
+    final result = await service.autoCheckIfDue();
+    final release = result?.release;
+    if (release == null || result?.hasUpdate != true) return;
+    final context = _navigatorKey.currentContext;
+    if (context == null || !context.mounted) return;
+    await showUpdateDialog(
+      context,
+      service: service,
+      release: release,
+      onBusyChanged: () {},
+      onFinished: (install) async {
+        _messengerKey.currentState?.showSnackBar(
+          SnackBar(content: Text(install.message)),
+        );
+      },
+    );
   }
 
   @override
@@ -51,7 +96,12 @@ class _NyatetAppState extends ConsumerState<NyatetApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Nyatet',
-      theme: ThemeData(colorSchemeSeed: const Color(0xFF1B5FB0), useMaterial3: true),
+      navigatorKey: _navigatorKey,
+      scaffoldMessengerKey: _messengerKey,
+      theme: ThemeData(
+        colorSchemeSeed: const Color(0xFF1B5FB0),
+        useMaterial3: true,
+      ),
       home: const _Shell(),
     );
   }

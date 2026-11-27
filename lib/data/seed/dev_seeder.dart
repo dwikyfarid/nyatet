@@ -176,6 +176,7 @@ class DevSeeder {
               status: 'active',
               joinedAt: now,
               id: Value(const Uuid().v4()),
+              updatedAt: Value(now),
             ),
           );
     }
@@ -196,7 +197,6 @@ class DevSeeder {
         monthlyAllocation: 1500000,
         dueDate: Value(DateTime(now.year, now.month + 8, 28)),
         status: const Value('active'),
-        createdAt: now,
         updatedAt: now,
       ),
       GoalsCompanion.insert(
@@ -205,7 +205,6 @@ class DevSeeder {
         targetAmount: 20000000,
         monthlyAllocation: 0,
         status: const Value('active'),
-        createdAt: now,
         updatedAt: now,
       ),
       GoalsCompanion.insert(
@@ -215,7 +214,6 @@ class DevSeeder {
         monthlyAllocation: 500000,
         dueDate: Value(DateTime(now.year, now.month + 2, 20)),
         status: const Value('active'),
-        createdAt: now,
         updatedAt: now,
       ),
     ];

@@ -9,6 +9,13 @@ import '../format.dart';
 import '../providers.dart';
 import 'cockpit_screen.dart' show monthLabel;
 
+/// Pesan simpan budget (UX-16): selalu berisi angka yang berguna.
+String budgetSavedMessage(String category, double spent, double limit) {
+  final pct = limit <= 0 ? 0 : (spent / limit * 100).round();
+  return 'Budget $category disimpan — terpakai '
+      '${formatRupiah(spent)} dari ${formatRupiah(limit)} ($pct%)';
+}
+
 /// L8 — Kategori & Budget (F7), khusus admin.
 /// Daftar kategori + budget bulan berjalan (limit), indikator amber ≥80% /
 /// merah ≥100%, selalu dengan teks persen + panah (UX-01). Budget hanya
@@ -104,7 +111,8 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
                             redBg: _redBg,
                             greenText: _greenText,
                             greenBg: _greenBg,
-                            onSetBudget: () => _setBudget(row),
+                            onSetBudget:
+                                row.isExpense ? () => _setBudget(row) : null,
                             onEditCategory: () => _editCategory(context, row.category),
                             onDeactivate: () => _deactivate(row.category),
                           );
@@ -156,13 +164,14 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
             categoryId: row.category.id,
             amount: parseRupiah(controller.text),
           );
-      ref.invalidate(budgetStatusProvider);
+      ref.refreshMoneyProviders();
       if (!mounted) return;
+      // UX-16: umpan balik berisi angka berguna, bukan sekadar "tersimpan".
+      final limit = parseRupiah(controller.text);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Budget ${row.category.name} tersimpan — '
-            'sisa ${formatRupiah((row.limit - row.spent).clamp(0, double.infinity))}',
+            budgetSavedMessage(row.category.name, row.spent, limit),
           ),
         ),
       );
@@ -300,7 +309,7 @@ class _BudgetRow extends StatelessWidget {
   final Color redBg;
   final Color greenText;
   final Color greenBg;
-  final VoidCallback onSetBudget;
+  final VoidCallback? onSetBudget;
   final VoidCallback onEditCategory;
   final VoidCallback onDeactivate;
 
@@ -361,14 +370,18 @@ class _BudgetRow extends StatelessWidget {
           ? PopupMenuButton<String>(
               tooltip: 'Aksi kategori',
               onSelected: (v) {
-                if (v == 'budget') onSetBudget();
+                if (v == 'budget') onSetBudget?.call();
                 if (v == 'edit') onEditCategory();
                 if (v == 'off') onDeactivate();
               },
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'budget', child: Text('Atur budget')),
-                PopupMenuItem(value: 'edit', child: Text('Ubah kategori')),
-                PopupMenuItem(value: 'off', child: Text('Nonaktifkan')),
+              itemBuilder: (_) => [
+                if (onSetBudget != null)
+                  const PopupMenuItem(
+                    value: 'budget',
+                    child: Text('Atur budget'),
+                  ),
+                const PopupMenuItem(value: 'edit', child: Text('Ubah kategori')),
+                const PopupMenuItem(value: 'off', child: Text('Nonaktifkan')),
               ],
             )
           : null,

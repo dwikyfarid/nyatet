@@ -52,6 +52,20 @@ android {
         }
     }
 
+    // REL-04: dua jalur build dengan applicationId & versionCode yang sama.
+    // `sideload` memuat cek update GitHub; `play` tidak boleh memuatnya.
+    flavorDimensions += "dist"
+    productFlavors {
+        create("sideload") {
+            dimension = "dist"
+            applicationId = "com.nyatet.nyatet"
+        }
+        create("play") {
+            dimension = "dist"
+            applicationId = "com.nyatet.nyatet"
+        }
+    }
+
     buildTypes {
         release {
             // Rilis WAJIB ditandatangani keystore rilis, tidak pernah debug key.

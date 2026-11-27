@@ -192,6 +192,17 @@ class AllocationRepository {
   }) async {
     final decision = policy.canManageCategories();
     if (!decision.allowed) throw AllocationRuleViolation(decision.reason!);
+    // D-34: budget/limit hanya untuk kategori pengeluaran — sama dengan
+    // aturan `budget.save` di backend.
+    final category = await (_db.select(_db.categories)
+          ..where((c) => c.id.equals(categoryId)))
+        .getSingleOrNull();
+    if (category == null) {
+      throw AllocationRuleViolation('Kategori tidak ditemukan');
+    }
+    if (category.type != TransactionType.outFlow) {
+      throw AllocationRuleViolation('Budget hanya untuk kategori pengeluaran');
+    }
     final existing = await (_db.select(_db.budgets)
           ..where(
             (b) =>
@@ -244,9 +255,14 @@ class AllocationRepository {
   // ---------------------------------------------------------------------
 
   Future<List<GoalProgress>> goalsWithProgress(AccessPolicy policy) async {
+    // D-36: tenggat terdekat dulu, tanpa tenggat di akhir, lalu nama A–Z.
     final goals = await (_db.select(_db.goals)
           ..where((g) => g.isDeleted.equals(false))
-          ..orderBy([(g) => OrderingTerm.asc(g.dueDate)]))
+          ..orderBy([
+            (g) => OrderingTerm.asc(g.dueDate.isNull()),
+            (g) => OrderingTerm.asc(g.dueDate),
+            (g) => OrderingTerm.asc(g.name),
+          ]))
         .get();
     final result = <GoalProgress>[];
     for (final g in goals) {
@@ -298,7 +314,6 @@ class AllocationRepository {
               dueDate: Value(dueDate),
               monthlyAllocation: monthlyAllocation,
               status: const Value('active'),
-              createdAt: now,
               updatedAt: now,
             ),
           );
