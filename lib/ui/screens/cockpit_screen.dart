@@ -44,7 +44,8 @@ class CockpitScreen extends ConsumerWidget {
             ),
             icon: const Icon(Icons.settings_outlined),
           ),
-          const DevMenu(),
+          // D-47: tidak dirender (dan tidak ter-compile) di build rilis.
+          if (ref.watch(devToolsEnabledProvider)) const DevMenu(),
         ],
       ),
       body: RefreshIndicator(
