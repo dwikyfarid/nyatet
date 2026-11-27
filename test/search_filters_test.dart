@@ -190,4 +190,18 @@ void main() {
         await budgets.status(admin, '2026-11', includeInactive: true);
     expect(withInactive.any((s) => s.category.id == 'cat-off'), isTrue);
   });
+
+  test('F15: hitungan filter aktif untuk label "Filter · N"', () {
+    expect(activeTransactionFilterCount(), 0);
+    expect(
+      activeTransactionFilterCount(
+        type: TransactionType.outFlow,
+        source: TransactionSource.notif,
+        categoryId: 'cat',
+        memberEmail: 'anak@example.com',
+      ),
+      4,
+    );
+    expect(activeTransactionFilterCount(categoryId: 'cat'), 1);
+  });
 }

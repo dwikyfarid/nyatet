@@ -41,3 +41,18 @@ List<Transaction> applyTransactionFilters(
   }
   return filtered;
 }
+
+/// Jumlah filter aktif untuk label "Filter · N".
+int activeTransactionFilterCount({
+  String? type,
+  String? source,
+  String? categoryId,
+  String? memberEmail,
+}) {
+  var count = 0;
+  if (type != null) count++;
+  if (source != null) count++;
+  if (categoryId != null) count++;
+  if (memberEmail != null) count++;
+  return count;
+}

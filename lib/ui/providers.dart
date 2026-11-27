@@ -277,6 +277,16 @@ final txCategoryFilterProvider = StateProvider<String?>((ref) => null);
 final txMemberFilterProvider = StateProvider<String?>((ref) => null);
 final txSortProvider = StateProvider<TxSort>((ref) => TxSort.dateDesc);
 
+/// F15/D-16: posisi gulir daftar transaksi disimpan supaya hasil cari yang
+/// mengetuk "anggota" mendarat di posisi/filter yang sama, bukan beranda reset.
+final txScrollOffsetProvider = StateProvider<double>((ref) => 0);
+
+/// Pilihan anggota untuk panel filter (dari data lokal).
+final txMemberChoicesProvider = FutureProvider<List<String>>((ref) async {
+  final rows = await ref.watch(visibleTransactionsProvider.future);
+  return rows.map((t) => t.memberEmail).toSet().toList()..sort();
+});
+
 /// Daftar transaksi setelah filter + urutan layar.
 final filteredTransactionsProvider = FutureProvider<List<Transaction>>(
   (ref) async {
