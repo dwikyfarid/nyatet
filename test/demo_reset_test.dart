@@ -62,4 +62,29 @@ void main() {
     expect(names, contains('Makan'));
     expect(names, contains('Belanja Dapur'));
   });
+
+  test('cold start setelah reset: nama kategori langsung benar (bukan bug awal)',
+      () async {
+    final db = AppDatabase.memory();
+    addTearDown(db.close);
+    await DevSeeder(db).seedTransactions();
+    await DevSeeder(db).resetDemo();
+
+    // Container baru = seperti aplikasi dibuka ulang: cache kosong, jadi nama
+    // kategori langsung benar tanpa perlu invalidate apa pun.
+    final cold = ProviderContainer(
+      overrides: [databaseProvider.overrideWithValue(db)],
+    );
+    addTearDown(cold.dispose);
+
+    final cats = await cold.read(categoriesProvider.future);
+    final budgets = await cold.read(allocationRowsProvider.future);
+    for (final b in budgets) {
+      expect(
+        cats.where((c) => c.id == b.categoryId).map((c) => c.name).firstOrNull,
+        isNotNull,
+        reason: 'cold start tidak boleh menampilkan "Kategori" generik',
+      );
+    }
+  });
 }
