@@ -20,6 +20,7 @@ class QuickAddScreen extends ConsumerStatefulWidget {
 class _QuickAddScreenState extends ConsumerState<QuickAddScreen> {
   final _amountController = TextEditingController();
   final _noteController = TextEditingController();
+  final _refController = TextEditingController();
   String _type = TransactionType.outFlow;
   DateTime _date = DateTime.now();
   String? _categoryId;
@@ -32,6 +33,7 @@ class _QuickAddScreenState extends ConsumerState<QuickAddScreen> {
   void dispose() {
     _amountController.dispose();
     _noteController.dispose();
+    _refController.dispose();
     super.dispose();
   }
 
@@ -58,6 +60,9 @@ class _QuickAddScreenState extends ConsumerState<QuickAddScreen> {
         note: _noteController.text.trim().isEmpty
             ? null
             : _noteController.text.trim(),
+        refNo: _refController.text.trim().isEmpty
+            ? null
+            : _refController.text.trim(),
       );
       // F8: beranda harus langsung ikut berubah, bukan setelah restart.
       ref.refreshMoneyProviders();

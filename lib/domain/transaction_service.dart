@@ -63,6 +63,7 @@ class TransactionService {
     String? memberEmail,
     String? note,
     String? merchant,
+    String? refNo,
   }) async {
     final decision = policy.canCreate();
     if (!decision.allowed) throw AccessDenied(decision.reason!);
@@ -91,6 +92,7 @@ class TransactionService {
     required double amount,
     String? categoryId,
     String? note,
+    String? refNo,
   }) async {
     final decision = policy.canEdit(txn);
     if (!decision.allowed) throw AccessDenied(decision.reason!);

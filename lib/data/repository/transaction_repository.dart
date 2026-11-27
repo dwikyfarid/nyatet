@@ -27,6 +27,7 @@ class TransactionRepository {
     String? receiptUrl,
     String? rawText,
     String? goalId,
+    String? refNo,
   }) async {
     final id = const Uuid().v4();
     final now = DateTime.now().toUtc();
@@ -46,6 +47,7 @@ class TransactionRepository {
               note: Value(note),
               receiptUrl: Value(receiptUrl),
               rawText: Value(rawText),
+              refNo: Value(refNo),
               goalId: Value(goalId),
               createdAt: now,
               updatedAt: now,
@@ -77,6 +79,7 @@ class TransactionRepository {
     String? receiptUrl,
     String? rawText,
     String? goalId,
+    String? refNo,
   }) async {
     await _db.transaction(() async {
       final existing = await _db.transactionById(id);
@@ -97,6 +100,7 @@ class TransactionRepository {
           note: Value(note),
           receiptUrl: Value(receiptUrl),
           rawText: Value(rawText),
+          refNo: Value(refNo),
           goalId: Value(goalId),
           updatedAt: Value(now),
         ),

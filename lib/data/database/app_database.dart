@@ -53,6 +53,9 @@ class Transactions extends Table {
   TextColumn get goalId => text().nullable()();
   TextColumn get receiptUrl => text().nullable()();
   TextColumn get rawText => text().nullable()();
+  /// F14/D-49: nomor referensi dari notifikasi/struk (maks 64), nullable.
+  /// Baris lama tetap NULL — bukan '' atau '-' (tidak ada nilai karangan).
+  TextColumn get refNo => text().nullable()();
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
@@ -249,7 +252,7 @@ class AppDatabase extends _$AppDatabase {
   factory AppDatabase.memory() => AppDatabase(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -301,6 +304,9 @@ class AppDatabase extends _$AppDatabase {
           // eksplisit supaya migrasi tidak bergantung pada kolom lama yang
           // sudah dihapus dari model drift.
           if (from < 4) await _rebuildGoals(from);
+          // F14: kolom referensi transaksi. Nullable → aman untuk ALTER TABLE
+          // dan baris lama tidak diisi nilai palsu.
+          if (from < 5) await m.addColumn(transactions, transactions.refNo);
         },
       );
 

@@ -40,6 +40,16 @@ void main() {
             "is_active INTEGER NOT NULL DEFAULT 0, "
             'updated_at INTEGER NOT NULL,';
     db.execute('''
+      CREATE TABLE transactions (
+        id TEXT NOT NULL, date INTEGER NOT NULL, type TEXT NOT NULL,
+        amount REAL NOT NULL, category_id TEXT NULL,
+        account TEXT NOT NULL DEFAULT '', merchant TEXT NULL, note TEXT NULL,
+        member_email TEXT NOT NULL, source TEXT NOT NULL, goal_id TEXT NULL,
+        receipt_url TEXT NULL, raw_text TEXT NULL,
+        created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
+        is_deleted INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (id)
+      );
       CREATE TABLE members (
         $memberIdColumn email TEXT NOT NULL, name TEXT NOT NULL,
         role TEXT NOT NULL, status TEXT NOT NULL, joined_at INTEGER NOT NULL,
@@ -246,5 +256,57 @@ void main() {
     final back = goalFromMap(first);
     expect(back.updatedAt.value, goal.updatedAt);
     expect(back.dueDate.value, DateTime(2027, 6, 30));
+  });
+
+  test('F14: upgrade v4 → v5 menambah ref_no tanpa menghapus transaksi',
+      () async {
+    final file = File('${dir.path}/v4.sqlite');
+    final db = raw.sqlite3.open(file.path);
+    // Skema transaksi v4 (tanpa ref_no), seperti database pengguna lama.
+    db.execute('''
+      CREATE TABLE transactions (
+        id TEXT NOT NULL, date INTEGER NOT NULL, type TEXT NOT NULL,
+        amount REAL NOT NULL, category_id TEXT NULL,
+        account TEXT NOT NULL DEFAULT '', merchant TEXT NULL, note TEXT NULL,
+        member_email TEXT NOT NULL, source TEXT NOT NULL, goal_id TEXT NULL,
+        receipt_url TEXT NULL, raw_text TEXT NULL,
+        created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
+        is_deleted INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (id)
+      );
+      CREATE TABLE budgets (
+        id TEXT NOT NULL, month TEXT NOT NULL, category_id TEXT NOT NULL,
+        type TEXT NOT NULL DEFAULT 'budget',
+        limit_amount REAL NOT NULL DEFAULT 0,
+        allocated_amount REAL NOT NULL DEFAULT 0,
+        updated_at INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (id)
+      )
+    ''');
+    db.execute(
+      "INSERT INTO transactions (id,date,type,amount,member_email,source,created_at,updated_at) "
+      "VALUES ('t-lama',1763942400,'out',45800,'bapak@example.com','manual',1763942400,1763942400)",
+    );
+    db.execute('PRAGMA user_version = 4');
+    db.close();
+
+    final app = AppDatabase(NativeDatabase(File(file.path)));
+    addTearDown(app.close);
+
+    final rows = await app.select(app.transactions).get();
+    expect(rows, hasLength(1), reason: 'baris lama tidak boleh hilang');
+    expect(rows.single.id, 't-lama');
+    expect(rows.single.amount, 45800);
+    expect(
+      rows.single.refNo,
+      isNull,
+      reason: 'baris lama harus NULL, bukan string kosong/penanda',
+    );
+
+    final columns = await app
+        .customSelect('PRAGMA table_info(transactions)')
+        .get()
+        .then((r) => r.map((x) => x.read<String>('name')).toSet());
+    expect(columns, contains('ref_no'));
   });
 }

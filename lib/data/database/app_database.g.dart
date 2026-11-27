@@ -82,6 +82,11 @@ class $TransactionsTable extends Transactions
   late final GeneratedColumn<String> rawText = GeneratedColumn<String>(
       'raw_text', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _refNoMeta = const VerificationMeta('refNo');
+  @override
+  late final GeneratedColumn<String> refNo = GeneratedColumn<String>(
+      'ref_no', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _createdAtMeta =
       const VerificationMeta('createdAt');
   @override
@@ -119,6 +124,7 @@ class $TransactionsTable extends Transactions
         goalId,
         receiptUrl,
         rawText,
+        refNo,
         createdAt,
         updatedAt,
         isDeleted
@@ -202,6 +208,10 @@ class $TransactionsTable extends Transactions
       context.handle(_rawTextMeta,
           rawText.isAcceptableOrUnknown(data['raw_text']!, _rawTextMeta));
     }
+    if (data.containsKey('ref_no')) {
+      context.handle(
+          _refNoMeta, refNo.isAcceptableOrUnknown(data['ref_no']!, _refNoMeta));
+    }
     if (data.containsKey('created_at')) {
       context.handle(_createdAtMeta,
           createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
@@ -253,6 +263,8 @@ class $TransactionsTable extends Transactions
           .read(DriftSqlType.string, data['${effectivePrefix}receipt_url']),
       rawText: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}raw_text']),
+      refNo: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}ref_no']),
       createdAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
       updatedAt: attachedDatabase.typeMapping
@@ -284,6 +296,10 @@ class Transaction extends DataClass implements Insertable<Transaction> {
   final String? goalId;
   final String? receiptUrl;
   final String? rawText;
+
+  /// F14/D-49: nomor referensi dari notifikasi/struk (maks 64), nullable.
+  /// Baris lama tetap NULL — bukan '' atau '-' (tidak ada nilai karangan).
+  final String? refNo;
   final DateTime createdAt;
   final DateTime updatedAt;
   final bool isDeleted;
@@ -301,6 +317,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       this.goalId,
       this.receiptUrl,
       this.rawText,
+      this.refNo,
       required this.createdAt,
       required this.updatedAt,
       required this.isDeleted});
@@ -332,6 +349,9 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     if (!nullToAbsent || rawText != null) {
       map['raw_text'] = Variable<String>(rawText);
     }
+    if (!nullToAbsent || refNo != null) {
+      map['ref_no'] = Variable<String>(refNo);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     map['is_deleted'] = Variable<bool>(isDeleted);
@@ -362,6 +382,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       rawText: rawText == null && nullToAbsent
           ? const Value.absent()
           : Value(rawText),
+      refNo:
+          refNo == null && nullToAbsent ? const Value.absent() : Value(refNo),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
       isDeleted: Value(isDeleted),
@@ -385,6 +407,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       goalId: serializer.fromJson<String?>(json['goalId']),
       receiptUrl: serializer.fromJson<String?>(json['receiptUrl']),
       rawText: serializer.fromJson<String?>(json['rawText']),
+      refNo: serializer.fromJson<String?>(json['refNo']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
@@ -407,6 +430,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       'goalId': serializer.toJson<String?>(goalId),
       'receiptUrl': serializer.toJson<String?>(receiptUrl),
       'rawText': serializer.toJson<String?>(rawText),
+      'refNo': serializer.toJson<String?>(refNo),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'isDeleted': serializer.toJson<bool>(isDeleted),
@@ -427,6 +451,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           Value<String?> goalId = const Value.absent(),
           Value<String?> receiptUrl = const Value.absent(),
           Value<String?> rawText = const Value.absent(),
+          Value<String?> refNo = const Value.absent(),
           DateTime? createdAt,
           DateTime? updatedAt,
           bool? isDeleted}) =>
@@ -444,6 +469,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
         goalId: goalId.present ? goalId.value : this.goalId,
         receiptUrl: receiptUrl.present ? receiptUrl.value : this.receiptUrl,
         rawText: rawText.present ? rawText.value : this.rawText,
+        refNo: refNo.present ? refNo.value : this.refNo,
         createdAt: createdAt ?? this.createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
         isDeleted: isDeleted ?? this.isDeleted,
@@ -466,6 +492,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       receiptUrl:
           data.receiptUrl.present ? data.receiptUrl.value : this.receiptUrl,
       rawText: data.rawText.present ? data.rawText.value : this.rawText,
+      refNo: data.refNo.present ? data.refNo.value : this.refNo,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
@@ -488,6 +515,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           ..write('goalId: $goalId, ')
           ..write('receiptUrl: $receiptUrl, ')
           ..write('rawText: $rawText, ')
+          ..write('refNo: $refNo, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('isDeleted: $isDeleted')
@@ -510,6 +538,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       goalId,
       receiptUrl,
       rawText,
+      refNo,
       createdAt,
       updatedAt,
       isDeleted);
@@ -530,6 +559,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           other.goalId == this.goalId &&
           other.receiptUrl == this.receiptUrl &&
           other.rawText == this.rawText &&
+          other.refNo == this.refNo &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
           other.isDeleted == this.isDeleted);
@@ -549,6 +579,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
   final Value<String?> goalId;
   final Value<String?> receiptUrl;
   final Value<String?> rawText;
+  final Value<String?> refNo;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<bool> isDeleted;
@@ -567,6 +598,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.goalId = const Value.absent(),
     this.receiptUrl = const Value.absent(),
     this.rawText = const Value.absent(),
+    this.refNo = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.isDeleted = const Value.absent(),
@@ -586,6 +618,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.goalId = const Value.absent(),
     this.receiptUrl = const Value.absent(),
     this.rawText = const Value.absent(),
+    this.refNo = const Value.absent(),
     required DateTime createdAt,
     required DateTime updatedAt,
     this.isDeleted = const Value.absent(),
@@ -612,6 +645,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     Expression<String>? goalId,
     Expression<String>? receiptUrl,
     Expression<String>? rawText,
+    Expression<String>? refNo,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<bool>? isDeleted,
@@ -631,6 +665,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       if (goalId != null) 'goal_id': goalId,
       if (receiptUrl != null) 'receipt_url': receiptUrl,
       if (rawText != null) 'raw_text': rawText,
+      if (refNo != null) 'ref_no': refNo,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (isDeleted != null) 'is_deleted': isDeleted,
@@ -652,6 +687,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       Value<String?>? goalId,
       Value<String?>? receiptUrl,
       Value<String?>? rawText,
+      Value<String?>? refNo,
       Value<DateTime>? createdAt,
       Value<DateTime>? updatedAt,
       Value<bool>? isDeleted,
@@ -670,6 +706,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       goalId: goalId ?? this.goalId,
       receiptUrl: receiptUrl ?? this.receiptUrl,
       rawText: rawText ?? this.rawText,
+      refNo: refNo ?? this.refNo,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       isDeleted: isDeleted ?? this.isDeleted,
@@ -719,6 +756,9 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     if (rawText.present) {
       map['raw_text'] = Variable<String>(rawText.value);
     }
+    if (refNo.present) {
+      map['ref_no'] = Variable<String>(refNo.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -750,6 +790,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
           ..write('goalId: $goalId, ')
           ..write('receiptUrl: $receiptUrl, ')
           ..write('rawText: $rawText, ')
+          ..write('refNo: $refNo, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('isDeleted: $isDeleted, ')
@@ -4525,6 +4566,7 @@ typedef $$TransactionsTableCreateCompanionBuilder = TransactionsCompanion
   Value<String?> goalId,
   Value<String?> receiptUrl,
   Value<String?> rawText,
+  Value<String?> refNo,
   required DateTime createdAt,
   required DateTime updatedAt,
   Value<bool> isDeleted,
@@ -4545,6 +4587,7 @@ typedef $$TransactionsTableUpdateCompanionBuilder = TransactionsCompanion
   Value<String?> goalId,
   Value<String?> receiptUrl,
   Value<String?> rawText,
+  Value<String?> refNo,
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
   Value<bool> isDeleted,
@@ -4598,6 +4641,9 @@ class $$TransactionsTableFilterComposer
 
   ColumnFilters<String> get rawText => $composableBuilder(
       column: $table.rawText, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get refNo => $composableBuilder(
+      column: $table.refNo, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnFilters(column));
@@ -4657,6 +4703,9 @@ class $$TransactionsTableOrderingComposer
   ColumnOrderings<String> get rawText => $composableBuilder(
       column: $table.rawText, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get refNo => $composableBuilder(
+      column: $table.refNo, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnOrderings(column));
 
@@ -4715,6 +4764,9 @@ class $$TransactionsTableAnnotationComposer
   GeneratedColumn<String> get rawText =>
       $composableBuilder(column: $table.rawText, builder: (column) => column);
 
+  GeneratedColumn<String> get refNo =>
+      $composableBuilder(column: $table.refNo, builder: (column) => column);
+
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
@@ -4764,6 +4816,7 @@ class $$TransactionsTableTableManager extends RootTableManager<
             Value<String?> goalId = const Value.absent(),
             Value<String?> receiptUrl = const Value.absent(),
             Value<String?> rawText = const Value.absent(),
+            Value<String?> refNo = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
             Value<bool> isDeleted = const Value.absent(),
@@ -4783,6 +4836,7 @@ class $$TransactionsTableTableManager extends RootTableManager<
             goalId: goalId,
             receiptUrl: receiptUrl,
             rawText: rawText,
+            refNo: refNo,
             createdAt: createdAt,
             updatedAt: updatedAt,
             isDeleted: isDeleted,
@@ -4802,6 +4856,7 @@ class $$TransactionsTableTableManager extends RootTableManager<
             Value<String?> goalId = const Value.absent(),
             Value<String?> receiptUrl = const Value.absent(),
             Value<String?> rawText = const Value.absent(),
+            Value<String?> refNo = const Value.absent(),
             required DateTime createdAt,
             required DateTime updatedAt,
             Value<bool> isDeleted = const Value.absent(),
@@ -4821,6 +4876,7 @@ class $$TransactionsTableTableManager extends RootTableManager<
             goalId: goalId,
             receiptUrl: receiptUrl,
             rawText: rawText,
+            refNo: refNo,
             createdAt: createdAt,
             updatedAt: updatedAt,
             isDeleted: isDeleted,
