@@ -34,3 +34,7 @@ memakai `lib/main.dart` (cek update AKTIF) untuk kedua flavor dan bisa menimpa
 APK play dengan build yang salah. Pakai `./tooling/build_all.sh` yang membangun
 kedua flavor dengan entrypoint benar dan menyimpan artefak bernama versi+jam. Artefak yang diserahkan ke QA disalin ke
 `artifacts/nyatet-<versi>-<flavor>-<jam>.apk` supaya satu putaran = satu berkas.
+
+## Backend
+
+Repo ini hanya berisi klien Flutter. Backend Apps Script (Spreadsheet keluarga) dikelola sebagai proyek terpisah dan **bukan** sumber deploy dari repo ini — folder `backend/` versi lama sudah dihapus.
