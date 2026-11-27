@@ -37,7 +37,7 @@ Future<void> showTransactionDetail(
             const SizedBox(height: 4),
             Text(formatTanggalWaktu(txn.date)),
             const SizedBox(height: 4),
-            Text('${txn.memberEmail} • sumber ${txn.source}'),
+            Text('${memberLabel(txn.memberEmail)} • sumber ${txn.source}'),
             if (txn.note != null) ...[
               const SizedBox(height: 8),
               Text('Catatan: ${txn.note}'),

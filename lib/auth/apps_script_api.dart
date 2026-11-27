@@ -83,6 +83,95 @@ class MeInfo {
   final String? memberId;
 }
 
+/// Hasil `account.delete` (F12). Idempoten: `alreadyDeleted` dianggap sukses.
+class AccountDeleteResult {
+  const AccountDeleteResult({
+    required this.deleted,
+    required this.alreadyDeleted,
+    this.memberId,
+    this.transactionsAnonymized,
+    this.auditsScrubbed,
+  });
+
+  factory AccountDeleteResult.fromJson(Map<String, Object?> json) =>
+      AccountDeleteResult(
+        deleted: json['deleted'] == true,
+        alreadyDeleted: json['alreadyDeleted'] == true,
+        memberId: json['memberId']?.toString(),
+        transactionsAnonymized: json['transactionsAnonymized'] == true,
+        auditsScrubbed: json['auditsScrubbed'] == true,
+      );
+
+  final bool deleted;
+  final bool alreadyDeleted;
+  final String? memberId;
+  final bool? transactionsAnonymized;
+  final bool? auditsScrubbed;
+
+  bool get ok => deleted || alreadyDeleted;
+}
+
+/// Hasil `family.delete` (F12). Hanya admin terakhir.
+class FamilyDeleteResult {
+  const FamilyDeleteResult({
+    required this.deleted,
+    required this.alreadyDeleted,
+    this.familyId,
+    this.rowsRemoved,
+    this.mappingsRemoved,
+    this.fileTrashed,
+    this.receiptFolderTrashed,
+  });
+
+  factory FamilyDeleteResult.fromJson(Map<String, Object?> json) =>
+      FamilyDeleteResult(
+        deleted: json['deleted'] == true,
+        alreadyDeleted: json['alreadyDeleted'] == true,
+        familyId: json['familyId']?.toString(),
+        rowsRemoved: (json['rowsRemoved'] as num?)?.toInt(),
+        mappingsRemoved: (json['mappingsRemoved'] as num?)?.toInt(),
+        fileTrashed: json['fileTrashed'] == true,
+        receiptFolderTrashed: json['receiptFolderTrashed'] == true,
+      );
+
+  final bool deleted;
+  final bool alreadyDeleted;
+  final String? familyId;
+  final int? rowsRemoved;
+  final int? mappingsRemoved;
+  final bool? fileTrashed;
+
+  /// Backend ikut men-trash folder nota (F5) — disebut di ringkasan hasil.
+  final bool? receiptFolderTrashed;
+
+  bool get ok => deleted || alreadyDeleted;
+}
+
+/// Anggota untuk menentukan "admin terakhir" sebelum menghapus.
+class MemberSummary {
+  const MemberSummary({
+    required this.email,
+    required this.role,
+    required this.status,
+    this.id,
+  });
+
+  factory MemberSummary.fromJson(Map<String, Object?> json) => MemberSummary(
+        email: '${json['email'] ?? ''}',
+        role: '${json['role'] ?? ''}',
+        status: '${json['status'] ?? ''}',
+        id: json['id']?.toString(),
+      );
+
+  final String email;
+  final String role;
+  final String status;
+  final String? id;
+
+  bool get isActive => status == 'active' || status == 'invited';
+  bool get isAdmin => role == 'admin';
+}
+
 /// Klien Apps Script Web App untuk F1. Setiap request membawa ID token;
 /// aplikasi tidak pernah mengirim role/familyId sebagai penentu hak (D-22).
 class AppsScriptApi {
@@ -121,6 +210,40 @@ class AppsScriptApi {
     );
     final family = (data?['family'] as Map?) ?? const {};
     return FamilyInfo.fromJson(Map<String, Object?>.from(family));
+  }
+
+  Future<List<MemberSummary>> memberList(String idToken) async {
+    final data = await _call<Map<String, Object?>>('member.list', idToken, null);
+    final rows = (data?['members'] as List?) ?? const [];
+    return rows
+        .whereType<Map>()
+        .map((m) => MemberSummary.fromJson(Map<String, Object?>.from(m)))
+        .toList();
+  }
+
+  /// Hapus akun sendiri (F12/D-33). Transaksi keluarga TIDAK dihapus; server
+  /// mengganti `member_email` menjadi `deleted:<memberId>`.
+  Future<AccountDeleteResult> deleteAccount(String idToken) async {
+    final data = await _call<Map<String, Object?>>(
+      'account.delete',
+      idToken,
+      null,
+    );
+    return AccountDeleteResult.fromJson(data ?? const {});
+  }
+
+  /// Hapus seluruh keluarga (admin terakhir). `confirmName` harus sama persis
+  /// dengan nama keluarga; server menolak dengan VALIDATION bila tidak.
+  Future<FamilyDeleteResult> deleteFamily(
+    String idToken, {
+    required String confirmName,
+  }) async {
+    final data = await _call<Map<String, Object?>>(
+      'family.delete',
+      idToken,
+      {'confirmName': confirmName},
+    );
+    return FamilyDeleteResult.fromJson(data ?? const {});
   }
 
   Future<T?> _call<T>(

@@ -83,3 +83,10 @@ double parseRupiah(String text) {
   if (digits.isEmpty) return 0;
   return double.parse(digits);
 }
+
+/// D-33: transaksi anggota terhapus tetap ada, pemiliknya ditampilkan jujur.
+String memberLabel(String email) {
+  if (email.startsWith('deleted:')) return 'Anggota dihapus';
+  if (email.trim().isEmpty) return 'Tanpa anggota';
+  return email;
+}

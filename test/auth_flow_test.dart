@@ -13,8 +13,7 @@ import 'package:nyatet/data/repository/draft_repository.dart';
 import 'package:nyatet/data/repository/transaction_repository.dart';
 
 class _FakeGateway implements AuthGateway {
-  _FakeGateway({this.email = 'bapak@example.com'});
-  final String email;
+  final String email = 'bapak@example.com';
   int signInCalls = 0;
   int signOutCalls = 0;
 

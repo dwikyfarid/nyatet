@@ -87,13 +87,11 @@ void main() {
     // Berlaku juga di build play: privasi & hapus data bukan fitur update.
     expect(find.text('Kebijakan privasi'), findsOneWidget);
     expect(find.text('Hapus data akun'), findsOneWidget);
-    expect(find.text(AppLinks.privacyPolicy), findsOneWidget);
-    expect(find.text(AppLinks.deleteData), findsOneWidget);
+    expect(AppLinks.privacyPolicy, isEmpty);
+    expect(AppLinks.deleteData, isEmpty);
 
-    await tester.tap(find.text('Hapus data akun'));
-    await tester.pumpAndSettle();
-    expect(find.text('Halaman belum terbit'), findsOneWidget);
-    expect(find.text(AppLinks.deleteData), findsWidgets);
+    // D-45: URL kosong sampai halaman terbit → baris nonaktif dengan alasan.
+    expect(find.text('Halaman belum terbit'), findsWidgets);
   });
 
   testWidgets('Cek update manual selalu memberi jawaban (bukan diam)',

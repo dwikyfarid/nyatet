@@ -3,11 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../config/app_links.dart';
+import '../legal_links.dart';
+import 'delete_account_flow.dart';
 import '../../update/update_models.dart';
 import '../../update/update_service.dart';
 import '../providers.dart';
 import '../widgets/update_dialog.dart';
-import 'legal_placeholder_screen.dart';
 
 /// Pengaturan (REL-03). Baris cek update hanya dirender pada build
 /// `sideload`; build `play` tidak pernah membaca layanan update sama sekali.
@@ -145,33 +146,29 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
           const Divider(),
-          // F9/F12: tautan kebijakan privasi & hapus data, URL dari satu
-          // konstanta konfigurasi (bukan hardcode di widget).
-          ListTile(
-            leading: const Icon(Icons.privacy_tip_outlined),
-            title: const Text('Kebijakan privasi'),
-            subtitle: const Text(AppLinks.privacyPolicy),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const LegalPlaceholderScreen(
-                  title: 'Kebijakan privasi',
-                  url: AppLinks.privacyPolicy,
-                ),
-              ),
-            ),
+          // F9/F12: tautan kebijakan privasi & hapus data. URL dari satu
+          // konstanta; dibuka lewat intent ACTION_VIEW ke browser. Kalau URL
+          // belum diisi, baris nonaktif dan alasannya ditulis (bukan halaman
+          // kosong).
+          _LegalRow(
+            icon: Icons.privacy_tip_outlined,
+            title: 'Kebijakan privasi',
+            url: AppLinks.privacyPolicy,
           ),
+          _LegalRow(
+            icon: Icons.delete_forever_outlined,
+            title: 'Hapus data akun',
+            url: AppLinks.deleteData,
+          ),
+          const Divider(),
+          // F12/D-33: fungsi sungguhan, terpisah dari tautan web legal.
           ListTile(
-            leading: const Icon(Icons.delete_forever_outlined),
-            title: const Text('Hapus data akun'),
-            subtitle: const Text(AppLinks.deleteData),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const LegalPlaceholderScreen(
-                  title: 'Hapus data akun',
-                  url: AppLinks.deleteData,
-                ),
-              ),
+            leading: const Icon(Icons.person_remove_outlined),
+            title: const Text('Hapus akun'),
+            subtitle: const Text(
+              'Menghapus akunmu; transaksi keluarga tetap ada',
             ),
+            onTap: () => startDeleteAccount(context, ref),
           ),
           if (updateEnabled) ...[
             const Divider(),
@@ -213,6 +210,45 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ],
         ],
       ),
+    );
+  }
+}
+
+
+/// Satu baris tautan legal (D-45). URL kosong → baris nonaktif dengan alasan;
+/// URL terisi → membuka browser lewat intent ACTION_VIEW.
+class _LegalRow extends ConsumerWidget {
+  const _LegalRow({
+    required this.icon,
+    required this.title,
+    required this.url,
+  });
+
+  final IconData icon;
+  final String title;
+  final String url;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = LegalLinkState.resolve(url);
+
+    return ListTile(
+      leading: Icon(icon),
+      title: Text(title),
+      subtitle: Text(state.enabled ? url : (state.reason ?? 'Halaman belum terbit')),
+      trailing: state.enabled ? const Icon(Icons.open_in_new) : null,
+      enabled: state.enabled,
+      onTap: !state.enabled
+          ? null
+          : () async {
+              final opened =
+                  await ref.read(legalLauncherProvider)(Uri.parse(url.trim()));
+              if (!opened && context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Tidak bisa membuka browser')),
+                );
+              }
+            },
     );
   }
 }
