@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/database/app_database.dart';
 import '../../domain/allocation_repository.dart';
+import '../../data/seed/dev_seeder.dart';
 import '../../domain/report_service.dart';
 import '../format.dart';
 import '../../home_shell.dart';
@@ -46,6 +47,7 @@ class CockpitScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
           children: [
+            if (ref.watch(webDemoProvider)) const _DemoBanner(),
             summary.when(
               loading: () => const _SkeletonCard(),
               error: (e, _) => _ErrorBanner(message: '$e'),
@@ -400,6 +402,57 @@ class _ErrorBanner extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Text('Data belum bisa dimuat: $message'),
+      ),
+    );
+  }
+}
+
+/// F13: layar wajib menyebut bahwa ini demo lokal di browser.
+class _DemoBanner extends ConsumerWidget {
+  const _DemoBanner();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Card(
+      key: const Key('demo-banner'),
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.science_outlined, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Mode demo — data di browser ini, tanpa sinkronisasi',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  final db = ref.read(databaseProvider);
+                  final created = await DevSeeder(db).resetDemo();
+                  ref.refreshMoneyProviders();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('$created transaksi demo dimuat')),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.restart_alt),
+                label: const Text('Reset data demo'),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -5,6 +5,7 @@ analyzer:
     - "**/*.g.dart"
     - build/**
     - android/**
+    - web/**
 
 linter:
   rules:

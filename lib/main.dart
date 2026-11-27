@@ -1,12 +1,14 @@
 import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // Pengganti yang disarankan (package:material_ui) belum tersedia di SDK ini,
 // jadi import Flutter Material tetap dipakai.
 // ignore: deprecated_member_use
 import 'package:flutter/material.dart';
 
+import 'data/seed/dev_seeder.dart';
 import 'data/sync/sync_scheduler.dart';
 import 'home_shell.dart';
 import 'ui/providers.dart';
@@ -16,7 +18,12 @@ Future<void> main() async {
   final container = ProviderContainer();
   // Kategori awal supaya pemilihan kategori bisa dipakai offline (F6/F7).
   await container.read(databaseProvider).seedDefaultCategories();
-  unawaited(registerBackgroundSync());
+  if (kIsWeb) {
+    // F13 demo web: data contoh langsung tersedia di browser.
+    await DevSeeder(container.read(databaseProvider)).seedTransactions();
+  }
+  // Web demo (F13): tanpa kerja latar, tanpa login, data di browser.
+  if (!kIsWeb) unawaited(registerBackgroundSync());
   runApp(
     UncontrolledProviderScope(
       container: container,

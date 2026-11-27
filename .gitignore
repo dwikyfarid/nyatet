@@ -62,3 +62,7 @@ android/key.properties
 key.properties
 google-services.json
 android/app/google-services.json
+
+# Artefak build lokal (APK/web hasil build)
+/artifacts/
+/build/

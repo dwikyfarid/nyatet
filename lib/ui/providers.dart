@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart' show OrderingTerm;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
@@ -10,6 +11,9 @@ import '../domain/allocation_repository.dart';
 import '../domain/budget_repository.dart';
 import '../domain/report_service.dart';
 import '../domain/transaction_service.dart';
+
+/// True pada build web demo (F13): tanpa login, backend, maupun sinkronisasi.
+final webDemoProvider = Provider<bool>((ref) => kIsWeb);
 
 /// Database tunggal selama aplikasi hidup.
 final databaseProvider = Provider<AppDatabase>((ref) {
@@ -156,3 +160,17 @@ final goalsProvider = FutureProvider<List<GoalProgress>>((ref) {
   final repo = ref.watch(allocationRepositoryProvider);
   return repo.goalsWithProgress(ref.watch(accessPolicyProvider));
 });
+
+
+/// F13/P1: setelah simpan, semua angka ikut berubah (bukan hanya daftar).
+extension MoneyRefresh on WidgetRef {
+  void refreshMoneyProviders() {
+    invalidate(visibleTransactionsProvider);
+    invalidate(cashSummaryProvider);
+    invalidate(unallocatedProvider);
+    invalidate(allocationRowsProvider);
+    invalidate(goalsProvider);
+    invalidate(draftQueueProvider);
+    invalidate(pendingDraftsProvider);
+  }
+}
