@@ -4,6 +4,25 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id/1.1.0/).
 Versi mengikuti `x.y.z+build` di `pubspec.yaml`, dengan `build` = versionCode Android.
 Bagian teratas berkas ini dipakai otomatis sebagai catatan rilis GitHub.
 
+## v0.1.0+2 — belum dirilis
+
+Menunggu PR #2 lulus QA.
+
+### Diperbaiki
+- Migrasi basis data v2/v3 → v4 tidak lagi crash (D-32, D-34, D-36); `updated_at` dijamin terisi setelah migrasi.
+- Panah budget selalu turun dan bahaya disampaikan lewat teks, bukan warna saja (D-11).
+- Tombol Catat di beranda, setoran ke tujuan (D-23), serta alasan aksi yang ditolak ditampilkan.
+- Angka beranda tidak lagi basi setelah transaksi disimpan.
+
+### Ditambahkan
+- Cek pembaruan lewat GitHub Releases untuk build sideload (REL-03/REL-04), dengan verifikasi paket dan sertifikat sebelum memasang APK.
+- Dua flavor build: `sideload` (cek update aktif) dan `play` (bersih untuk Play Store).
+- Tautan kebijakan privasi dan hapus data di layar Pengaturan.
+- `tooling/build_all.sh` untuk membangun kedua flavor dengan entrypoint yang benar.
+
+### Catatan teknis
+- versionName tetap `0.1.0`, versionCode naik ke `2` supaya pembaruan bisa dipasang di atas build 1 tanpa uninstall.
+
 ## v0.1.0 — 2026-11-26
 
 Rilis internal pertama (bukan rilis Play Store).
