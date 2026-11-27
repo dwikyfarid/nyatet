@@ -38,6 +38,10 @@ Future<void> showTransactionDetail(
             Text(formatTanggalWaktu(txn.date)),
             const SizedBox(height: 4),
             Text('${txn.memberEmail} • sumber ${txn.source}'),
+            if (txn.refNo != null && txn.refNo!.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text('No. referensi: ${txn.refNo}'),
+            ],
             if (txn.note != null) ...[
               const SizedBox(height: 8),
               Text('Catatan: ${txn.note}'),
