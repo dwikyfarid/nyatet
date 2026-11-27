@@ -27,5 +27,10 @@ flutter build apk --debug --flavor play       # build Play, tanpa fitur update
 ```
 
 Hasilnya `build/app/outputs/flutter-apk/app-sideload-debug.apk` dan
-`app-play-debug.apk`. Artefak yang diserahkan ke QA disalin ke
+`app-play-debug.apk`.
+
+**Jangan** menjalankan `flutter build apk --debug` tanpa `-t`: perintah itu
+memakai `lib/main.dart` (cek update AKTIF) untuk kedua flavor dan bisa menimpa
+APK play dengan build yang salah. Pakai `./tooling/build_all.sh` yang membangun
+kedua flavor dengan entrypoint benar dan menyimpan artefak bernama versi+jam. Artefak yang diserahkan ke QA disalin ke
 `artifacts/nyatet-<versi>-<flavor>-<jam>.apk` supaya satu putaran = satu berkas.

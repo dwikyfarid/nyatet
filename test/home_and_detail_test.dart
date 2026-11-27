@@ -36,8 +36,9 @@ Transaction _goalDeposit({String member = 'anak@example.com'}) {
 /// jauh lebih lebar dari aslinya. Muat font sistem supaya pengukuran tinggi
 /// isi beranda mendekati perangkat sungguhan.
 Future<void> _loadRealFont() async {
-  const path = '/System/Library/Fonts/Supplemental/Arial.ttf';
-  final file = File(path);
+  // Font dibundel di repo (Roboto, Apache-2.0): di CI tidak ada Arial, dan
+  // font Ahem membuat lebar teks jauh berbeda dari perangkat.
+  final file = File('test/fonts/Roboto-Regular.ttf');
   if (!file.existsSync()) return;
   final bytes = file.readAsBytesSync();
   final loader = FontLoader('Roboto')

@@ -135,6 +135,37 @@ final selectedMonthProvider = StateProvider<String>(
   (ref) => ReportService.monthKey(DateTime.now()),
 );
 
+/// Satu tempat untuk menyegarkan semua angka uang setelah mutasi.
+/// Kalau hanya daftar transaksi yang di-invalidate, cockpit tetap menampilkan
+/// angka lama sampai aplikasi dibuka ulang (D-16/D-17).
+extension MoneyRefresh on WidgetRef {
+  /// Dipakai layar setelah simpan/ubah/hapus transaksi.
+  void refreshMoneyProviders() {
+    invalidate(visibleTransactionsProvider);
+    invalidate(cashSummaryProvider);
+    invalidate(unallocatedProvider);
+    invalidate(allocationRowsProvider);
+    invalidate(goalsProvider);
+    invalidate(budgetStatusProvider);
+    invalidate(draftQueueProvider);
+    invalidate(pendingDraftsProvider);
+  }
+}
+
+extension MoneyRefreshContainer on ProviderContainer {
+  /// Varian untuk uji provider tanpa widget.
+  void refreshMoneyProviders() {
+    invalidate(visibleTransactionsProvider);
+    invalidate(cashSummaryProvider);
+    invalidate(unallocatedProvider);
+    invalidate(allocationRowsProvider);
+    invalidate(goalsProvider);
+    invalidate(budgetStatusProvider);
+    invalidate(draftQueueProvider);
+    invalidate(pendingDraftsProvider);
+  }
+}
+
 /// Tab aktif beranda: 0 transaksi, 1 antrean, 2 antrean (badge), 3 alokasi.
 final homeTabProvider = StateProvider<int>((ref) => 0);
 

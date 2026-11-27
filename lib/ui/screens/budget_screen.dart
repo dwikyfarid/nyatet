@@ -164,7 +164,7 @@ class _BudgetScreenState extends ConsumerState<BudgetScreen> {
             categoryId: row.category.id,
             amount: parseRupiah(controller.text),
           );
-      ref.invalidate(budgetStatusProvider);
+      ref.refreshMoneyProviders();
       if (!mounted) return;
       // UX-16: umpan balik berisi angka berguna, bukan sekadar "tersimpan".
       final limit = parseRupiah(controller.text);

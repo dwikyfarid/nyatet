@@ -6,4 +6,7 @@
 //   flutter build apk --debug --flavor play -t lib/main_play.dart
 import 'main.dart' show bootstrap;
 
-Future<void> main() => bootstrap(enableUpdateChecker: false);
+/// Build Play TIDAK boleh memuat cek update (kebijakan Play).
+const bool kUpdateCheckerEnabled = false;
+
+Future<void> main() => bootstrap(enableUpdateChecker: kUpdateCheckerEnabled);

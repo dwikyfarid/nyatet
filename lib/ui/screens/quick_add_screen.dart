@@ -59,7 +59,8 @@ class _QuickAddScreenState extends ConsumerState<QuickAddScreen> {
             ? null
             : _noteController.text.trim(),
       );
-      ref.invalidate(visibleTransactionsProvider);
+      // F8: beranda harus langsung ikut berubah, bukan setelah restart.
+      ref.refreshMoneyProviders();
       if (!mounted) return;
       Navigator.of(context).pop(true);
     } on AccessDenied catch (e) {

@@ -192,8 +192,7 @@ class _AllocationRow extends ConsumerWidget {
             categoryId: category.id,
             amount: parseRupiah(controller.text),
           );
-      ref.invalidate(allocationRowsProvider);
-      ref.invalidate(unallocatedProvider);
+      ref.refreshMoneyProviders();
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

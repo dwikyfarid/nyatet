@@ -14,6 +14,8 @@ import 'ui/widgets/update_dialog.dart';
 
 /// Titik masuk default = build `sideload` (memuat cek update, REL-03).
 /// Build Play memakai `lib/main_play.dart` yang mematikan fitur ini (REL-04).
+/// Entrypoint default (dipakai `flutter run` dan build tanpa `-t`).
+/// Build Play WAJIB memakai `-t lib/main_play.dart`; lihat tooling/build_all.sh.
 Future<void> main() => bootstrap(enableUpdateChecker: true);
 
 Future<void> bootstrap({required bool enableUpdateChecker}) async {

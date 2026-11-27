@@ -159,7 +159,6 @@ Future<void> editTransaction(
           categoryId: txn.categoryId,
           note: txn.note,
         );
-    ref.invalidate(visibleTransactionsProvider);
     _refreshReports(ref);
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -205,7 +204,6 @@ Future<void> deleteTransaction(
           policy: ref.read(accessPolicyProvider),
           txn: txn,
         );
-    ref.invalidate(visibleTransactionsProvider);
     _refreshReports(ref);
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -220,8 +218,4 @@ Future<void> deleteTransaction(
   }
 }
 
-void _refreshReports(WidgetRef ref) {
-  ref.invalidate(cashSummaryProvider);
-  ref.invalidate(unallocatedProvider);
-  ref.invalidate(goalsProvider);
-}
+void _refreshReports(WidgetRef ref) => ref.refreshMoneyProviders();

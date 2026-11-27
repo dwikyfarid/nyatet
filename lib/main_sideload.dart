@@ -4,4 +4,7 @@
 //   flutter build apk --debug --flavor sideload -t lib/main_sideload.dart
 import 'main.dart' show bootstrap;
 
-Future<void> main() => bootstrap(enableUpdateChecker: true);
+/// Konstanta eksplisit supaya uji bisa mengunci perilaku entrypoint.
+const bool kUpdateCheckerEnabled = true;
+
+Future<void> main() => bootstrap(enableUpdateChecker: kUpdateCheckerEnabled);
