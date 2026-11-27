@@ -124,12 +124,17 @@ class AccountDeletionService {
       }
       await signOut();
       final rows = result.rowsRemoved ?? 0;
+      // D-46(c): receiptFolderTrashed adalah field nyata. Jangan mengarang dan
+      // jangan menghilangkan keterangan nasib foto nota dari ringkasan.
+      final receiptNote = result.receiptFolderTrashed == true
+          ? 'foto nota ikut di-trash'
+          : 'folder foto nota tidak ditemukan / tidak di-trash';
       return DeletionOutcome(
         ok: true,
         alreadyDeleted: result.alreadyDeleted,
-        message: 'Keluarga dihapus: $rows baris di 7 tab'
-            '${result.fileTrashed == true ? ', file di-trash' : ''}'
-            '${result.receiptFolderTrashed == true ? ', folder nota ikut di-trash' : ''}.',
+        message: 'Keluarga dihapus: $rows baris di 7 tab, '
+            '${result.fileTrashed == true ? 'file di-trash' : 'file tidak di-trash'}, '
+            '$receiptNote.',
       );
     } on ApiException catch (e) {
       return DeletionOutcome(ok: false, message: _errorMessage(e));

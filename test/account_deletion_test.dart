@@ -135,7 +135,7 @@ void main() {
     expect(params!['confirmName'], 'Keluarga Contoh');
     expect(outcome.ok, isTrue);
     expect(outcome.message, contains('129 baris'));
-    expect(outcome.message, contains('folder nota'));
+    expect(outcome.message, contains('foto nota ikut di-trash'));
     expect(signedOut, isTrue);
   });
 
@@ -206,5 +206,31 @@ void main() {
     expect(kLastAdminWarning, contains('7 tab'));
     expect(kLastAdminWarning, contains('tidak bisa dikembalikan'));
     expect(kLastAdminWarning, contains('Folder nota'));
+  });
+
+  test('D-46(c): receiptFolderTrashed=false tetap disebut jujur', () async {
+    final service = AccountDeletionService(
+      api: AppsScriptApi(
+        baseUrl: _base,
+        client: MockClient((_) async => _ok({
+              'deleted': true,
+              'alreadyDeleted': false,
+              'rowsRemoved': 10,
+              'fileTrashed': true,
+              'receiptFolderTrashed': false,
+            })),
+      ),
+      token: 't',
+      email: 'anak@example.com',
+      role: 'admin',
+      familyName: 'Keluarga Contoh',
+      signOut: () async {},
+    );
+
+    final outcome = await service.deleteFamily('Keluarga Contoh');
+    expect(outcome.ok, isTrue);
+    expect(outcome.message, contains('foto nota'));
+    expect(outcome.message, contains('tidak ditemukan'));
+    expect(outcome.message, isNot(contains('foto nota ikut di-trash')));
   });
 }
