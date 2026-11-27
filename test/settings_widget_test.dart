@@ -90,10 +90,11 @@ void main() {
     expect(find.text(AppLinks.privacyPolicy), findsOneWidget);
     expect(find.text(AppLinks.deleteData), findsOneWidget);
 
+    // Default LINKS_LIVE=false: ketukan memberi pemberitahuan jujur, tidak
+    // membuka halaman in-app. (Jalur browser diuji di legal_links_test.)
     await tester.tap(find.text('Hapus data akun'));
     await tester.pumpAndSettle();
-    expect(find.text('Halaman belum terbit'), findsOneWidget);
-    expect(find.text(AppLinks.deleteData), findsWidgets);
+    expect(find.textContaining('Halaman belum terbit'), findsOneWidget);
   });
 
   testWidgets('Cek update manual selalu memberi jawaban (bukan diam)',
