@@ -1,9 +1,13 @@
 name: release
 
 # Setelah merge ke main: build APK signed, verifikasi tanda tangan, lalu
-# tag annotated vX.Y.Z + GitHub Release berisi nyatet-vX.Y.Z.apk.
-# Tag hanya dibuat bila versi di pubspec.yaml benar-benar bertambah dibanding tag terakhir,
-# dan hanya setelah build + verifikasi tanda tangan berhasil.
+# tag annotated vX.Y.Z+build + GitHub Release.
+#
+# Aturan tag:
+#   - Tag memuat versionName DAN versionCode: `v0.1.0+2` (app membaca versionCode dari tag).
+#   - Tag hanya dibuat bila versi di pubspec.yaml benar-benar bertambah dibanding tag terakhir.
+#   - Tag hanya dibuat setelah build + verifikasi tanda tangan berhasil.
+#   - Kenaikan build saja (0.1.0+1 -> 0.1.0+2) tetap menghasilkan rilis baru.
 
 on:
   push:
@@ -22,7 +26,7 @@ jobs:
   release:
     name: rilis
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -34,41 +38,48 @@ jobs:
         run: |
           set -euo pipefail
           VERSION=$(sed -n 's/^version:[[:space:]]*//p' pubspec.yaml | head -1 | tr -d ' ')
+          case "$VERSION" in *+*) ;; *) echo "::error::pubspec.yaml harus berformat x.y.z+build"; exit 1;; esac
           NAME=${VERSION%%+*}
           BUILD=${VERSION##*+}
-          echo "pubspec version: $VERSION (versionName $NAME, versionCode $BUILD)"
+          TAG="v$NAME+$BUILD"
+          echo "pubspec version: $VERSION -> tag $TAG"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
           echo "build=$BUILD" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
           git fetch --tags --force -q
-          LAST=$(git tag --list 'v*' --sort=-v:refname | head -1 || true)
-          echo "tag terakhir: ${LAST:-<belum ada>}"
-
-          if [ -n "$LAST" ] && [ "v$NAME" = "$LAST" ]; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "v$NAME sudah dirilis — tidak ada tag/Release baru."
-            exit 0
-          fi
-
-          if [ -n "$LAST" ]; then
-            LAST_NAME=${LAST#v}
-            HIGHEST=$(printf '%s\n%s\n' "$LAST_NAME" "$NAME" | sort -V | tail -1)
-            if [ "$HIGHEST" != "$NAME" ] || [ "$HIGHEST" = "$LAST_NAME" ]; then
-              echo "skip=true" >> "$GITHUB_OUTPUT"
-              echo "versi $NAME tidak lebih tinggi dari $LAST_NAME — dilewati."
-              exit 0
-            fi
-          fi
-
-          if git rev-parse -q --verify "refs/tags/v$NAME" >/dev/null; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "tag v$NAME sudah ada — dilewati."
-            exit 0
-          fi
-
-          echo "skip=false" >> "$GITHUB_OUTPUT"
-          echo "akan merilis v$NAME"
+          git tag --list 'v*' --sort=-v:refname | head -5
+          DECISION=$(CUR_NAME="$NAME" CUR_BUILD="$BUILD" TAG="$TAG" python3 - <<'PYEOF'
+          import os, re, subprocess
+          def parse(tag):
+              t = tag.strip().lstrip("vV")
+              m = re.match(r"^(\d+(?:\.\d+)*)(?:\+(\d+))?$", t)
+              if not m:
+                  return None
+              name = tuple(int(x) for x in m.group(1).split("."))
+              build = int(m.group(2)) if m.group(2) else 1  # tag lama tanpa +build = build 1
+              return name, build
+          cur_name = tuple(int(x) for x in os.environ["CUR_NAME"].split("."))
+          cur = (cur_name, int(os.environ["CUR_BUILD"]))
+          tags = subprocess.run(["git", "tag", "--list", "v*"], capture_output=True, text=True).stdout.split()
+          parsed = [(t, parse(t)) for t in tags]
+          parsed = [(t, v) for t, v in parsed if v]
+          if os.environ["TAG"] in tags:
+              print(f"skip=true\nsebab={os.environ['TAG']} sudah ada (rilis dobel ditolak)")
+          elif parsed:
+              best_tag, best = max(parsed, key=lambda p: p[1])
+              if cur <= best:
+                  print(f"skip=true\nsebab=versi {cur[0]}+{cur[1]} tidak lebih tinggi dari {best[0]}+{best[1]} ({best_tag})")
+              else:
+                  print(f"skip=false\nsebab=naik dari {best[0]}+{best[1]} ({best_tag}) ke {cur[0]}+{cur[1]}")
+          else:
+              print("skip=false\nsebab=belum ada tag lama")
+          PYEOF
+          )
+          echo "$DECISION"
+          echo "$DECISION" | sed -n 's/^skip=//p' | xargs -I{} echo "skip={}" >> "$GITHUB_OUTPUT"
+          echo "$DECISION" | sed -n 's/^sebab=//p' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Java 21
         if: steps.ver.outputs.skip != 'true'
@@ -114,21 +125,41 @@ jobs:
         if: steps.ver.outputs.skip != 'true'
         run: flutter pub get
 
+      # Sejak REL-04 ada dua flavor. APK sideload yang bisa memperbarui diri
+      # lewat GitHub; APK play untuk distribusi Play (tanpa cek update sendiri).
       - name: Build APK rilis (signed)
         if: steps.ver.outputs.skip != 'true'
-        run: flutter build apk --release
+        run: |
+          set -euo pipefail
+          GRADLE=""
+          for f in android/app/build.gradle.kts android/app/build.gradle; do
+            [ -f "$f" ] && GRADLE="$f" && break
+          done
+          if [ -n "$GRADLE" ] && grep -q "productFlavors" "$GRADLE"; then
+            echo "flavor terdeteksi — membangun sideload + play"
+            flutter build apk --release --flavor sideload -t lib/main_sideload.dart
+            flutter build apk --release --flavor play -t lib/main_play.dart
+          else
+            echo "tanpa flavor — membangun satu APK rilis"
+            flutter build apk --release
+          fi
 
       - name: Beri nama artefak & hitung SHA-256
         if: steps.ver.outputs.skip != 'true'
         env:
-          NAME: ${{ steps.ver.outputs.name }}
+          VERSION: ${{ steps.ver.outputs.version }}
         run: |
           set -euo pipefail
-          SRC=build/app/outputs/flutter-apk/app-release.apk
-          OUT="nyatet-v$NAME.apk"
-          cp "$SRC" "$OUT"
-          sha256sum "$OUT" | tee sha256.txt
-          ls -l "$OUT"
+          mkdir -p dist
+          OUT=build/app/outputs/flutter-apk
+          if [ -f "$OUT/app-sideload-release.apk" ]; then
+            cp "$OUT/app-sideload-release.apk" "dist/nyatet-v$VERSION-sideload.apk"
+            cp "$OUT/app-play-release.apk" "dist/nyatet-v$VERSION-play.apk"
+          else
+            cp "$OUT/app-release.apk" "dist/nyatet-v$VERSION.apk"
+          fi
+          ( cd dist && shasum -a 256 ./*.apk | tee ../sha256.txt )
+          ls -l dist
 
       - name: Verifikasi tanda tangan rilis
         if: steps.ver.outputs.skip != 'true'
@@ -136,13 +167,25 @@ jobs:
           set -euo pipefail
           APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -1)
           if [ -z "$APKSIGNER" ]; then echo "::error::apksigner tidak ditemukan"; exit 1; fi
-          "$APKSIGNER" verify --print-certs build/app/outputs/flutter-apk/app-release.apk | tee certs.txt
-          if grep -qi "CN=Android Debug" certs.txt; then
-            echo "::error::APK ditandatangani kunci debug — rilis dibatalkan."
+          : > certs.txt
+          for apk in dist/*.apk; do
+            "$APKSIGNER" verify --print-certs "$apk" | tee -a certs.txt
+            if grep -qi "CN=Android Debug" certs.txt; then
+              echo "::error::$apk ditandatangani kunci debug — rilis dibatalkan."
+              exit 1
+            fi
+          done
+          DIGESTS=$(grep -i "certificate SHA-256 digest" certs.txt | awk '{print $NF}' | sort -u)
+          if [ "$(printf '%s\n' "$DIGESTS" | wc -l | tr -d ' ')" != "1" ]; then
+            echo "::error::APK rilis memakai sertifikat berbeda-beda — rilis dibatalkan."
             exit 1
           fi
-          echo "Sidik sertifikat:" >> "$GITHUB_STEP_SUMMARY"
-          grep -i "SHA-256" certs.txt >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "### Tanda tangan"
+            echo '```'
+            echo "$DIGESTS"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Susun catatan rilis
         if: steps.ver.outputs.skip != 'true'
@@ -152,23 +195,33 @@ jobs:
           BUILD: ${{ steps.ver.outputs.build }}
         run: |
           set -euo pipefail
+          SPEC="v$VERSION"
           CHANGELOG=$(awk '/^## /{c++} c==1' CHANGELOG.md)
-          if [ -z "$CHANGELOG" ]; then CHANGELOG=$(printf '## v%s\n\nTidak ada catatan di CHANGELOG.md.' "$NAME"); fi
+          if [ -z "$CHANGELOG" ]; then CHANGELOG=$(printf 'Tidak ada catatan di CHANGELOG.md.'); fi
+          DIGEST=$(grep -i "certificate SHA-256 digest" certs.txt | awk '{print $NF}' | sort -u | head -1)
           {
+            echo "## Nyatet $NAME (build $BUILD)"
+            echo
             echo "$CHANGELOG"
             echo
             echo "---"
             echo
+            echo "**Pasang:** unduh APK sideload, buka, izinkan pemasangan dari sumber ini bila diminta."
+            echo "Versi lama akan diperbarui tanpa uninstall (kunci tanda tangan sama)."
+            echo
+            echo "| Berkas | Ukuran | SHA-256 |"
+            echo "|---|---|---|"
+            while read -r hash file; do
+              size=$(wc -c < "$file" | tr -d ' ')
+              echo "| \`$(basename "$file")\` | $size byte | \`$hash\` |"
+            done < sha256.txt
+            echo
             echo "- versionName: \`$NAME\`"
             echo "- versionCode: \`$BUILD\`"
-            echo "- APK: \`nyatet-v$NAME.apk\`"
-            echo "- SHA-256: \`$(cut -d' ' -f1 sha256.txt)\`"
-            echo "- Tanda tangan: keystore rilis Nyatet (bukan debug)"
+            echo "- Tag: \`$SPEC\`"
+            echo "- Sertifikat: \`$DIGEST\`"
             echo
-            echo "Sidik sertifikat APK:"
-            echo '```'
-            grep -i "certificate SHA-256 digest" certs.txt || true
-            echo '```'
+            echo "Sidik sertifikat ini sama di setiap rilis, sehingga pembaruan bisa dipasang di atas versi lama."
           } > notes.md
           cat notes.md
 
@@ -176,15 +229,15 @@ jobs:
         if: steps.ver.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NAME: ${{ steps.ver.outputs.name }}
+          TAG: ${{ steps.ver.outputs.tag }}
           BUILD: ${{ steps.ver.outputs.build }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -a "v$NAME" -m "Nyatet v$NAME (versionCode $BUILD)"
-          git push origin "v$NAME"
-          gh release create "v$NAME" "nyatet-v$NAME.apk" \
-            --title "Nyatet v$NAME" \
+          git tag -a "$TAG" -m "Nyatet $TAG (versionCode $BUILD)"
+          git push origin "$TAG"
+          gh release create "$TAG" dist/*.apk \
+            --title "Nyatet ${TAG#v}" \
             --notes-file notes.md \
             --verify-tag

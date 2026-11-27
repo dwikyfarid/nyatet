@@ -48,13 +48,44 @@ jobs:
       - name: Test
         run: flutter test
 
+      # Sejak REL-04 ada dua flavor (sideload, play) dan tidak ada build tanpa flavor.
+      # Deteksi otomatis supaya cabang lama (tanpa flavor) tetap hijau.
       - name: Build APK debug
-        run: flutter build apk --debug
+        run: |
+          set -euo pipefail
+          GRADLE=""
+          for f in android/app/build.gradle.kts android/app/build.gradle; do
+            [ -f "$f" ] && GRADLE="$f" && break
+          done
+          if [ -n "$GRADLE" ] && grep -q "productFlavors" "$GRADLE"; then
+            echo "flavor terdeteksi — membangun sideload + play"
+            flutter build apk --debug --flavor sideload -t lib/main_sideload.dart
+            flutter build apk --debug --flavor play -t lib/main_play.dart
+            echo "multiflavor=true" >> "$GITHUB_ENV"
+          else
+            echo "tanpa flavor — membangun satu APK debug"
+            flutter build apk --debug
+            echo "multiflavor=false" >> "$GITHUB_ENV"
+          fi
 
       - name: Unggah APK debug
         uses: actions/upload-artifact@v7
         with:
           name: nyatet-debug-apk
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          path: |
+            build/app/outputs/flutter-apk/app-debug.apk
+            build/app/outputs/flutter-apk/app-sideload-debug.apk
+            build/app/outputs/flutter-apk/app-play-debug.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Ringkasan artefak
+        run: |
+          set -euo pipefail
+          {
+            echo "### APK debug"
+            echo '```'
+            ls -l build/app/outputs/flutter-apk/*.apk || true
+            shasum -a 256 build/app/outputs/flutter-apk/*.apk || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
