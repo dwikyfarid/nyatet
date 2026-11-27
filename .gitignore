@@ -65,3 +65,7 @@ android/app/google-services.json
 
 # Artefak build lokal (APK tidak di-commit)
 /artifacts/
+
+# Artefak build lokal (APK/AAB hasil build manual) — tidak untuk repo
+/dist/
+/artifacts/

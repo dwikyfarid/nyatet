@@ -40,8 +40,13 @@ jobs:
           OLD=$(git show origin/main:pubspec.yaml | sed -n 's/^version:[[:space:]]*//p' | head -1 | tr -d ' ')
           echo "versi branch: $NEW | versi main: $OLD"
           if [ -z "$NEW" ]; then echo "pubspec.yaml tanpa baris version:" >&2; exit 1; fi
+          HIGHEST=$(printf '%s\n%s\n' "$OLD" "$NEW" | sort -V | tail -1)
           if [ "$NEW" = "$OLD" ]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "versi branch sama dengan main ($NEW) — tidak ada PR rilis."
+          elif [ "$HIGHEST" != "$NEW" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "versi branch $NEW tidak lebih tinggi dari main $OLD — tidak ada PR rilis."
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
             echo "new=$NEW" >> "$GITHUB_OUTPUT"
