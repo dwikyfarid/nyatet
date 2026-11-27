@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nyatet/data/database/app_database.dart';
+import 'package:nyatet/data/database/mappers.dart';
 import 'package:nyatet/data/repository/transaction_repository.dart';
 
 void main() {
@@ -118,5 +119,38 @@ void main() {
 
     final queue = await db.pendingSyncBatch();
     expect(queue, hasLength(2)); // create + satu delete
+  });
+
+  test('F14: ref_no disimpan, dikirim ke antrean, dan dibaca balik', () async {
+    final id = await repo.create(
+      date: DateTime.utc(2026, 11, 25),
+      type: TransactionType.outFlow,
+      amount: 45800,
+      memberEmail: 'bapak@example.com',
+      source: TransactionSource.manual,
+      refNo: 'INV-2026-001',
+    );
+
+    final row = await db.transactionById(id);
+    expect(row!.refNo, 'INV-2026-001');
+
+    final queue = await db.pendingSyncBatch();
+    final payload = jsonDecode(queue.single.payload) as Map<String, dynamic>;
+    expect(payload['ref_no'], 'INV-2026-001');
+
+    // Bolak-balik lewat mapper (jalur sync.pull) mempertahankan nilai.
+    final mapped = transactionToMap(row);
+    expect(transactionFromMap(mapped).refNo.value, 'INV-2026-001');
+  });
+
+  test('F14: transaksi tanpa ref_no tetap NULL (bukan string kosong)', () async {
+    final id = await repo.create(
+      date: DateTime.utc(2026, 11, 25),
+      type: TransactionType.outFlow,
+      amount: 1000,
+      memberEmail: 'bapak@example.com',
+      source: TransactionSource.manual,
+    );
+    expect((await db.transactionById(id))!.refNo, isNull);
   });
 }
