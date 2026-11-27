@@ -83,3 +83,21 @@ double parseRupiah(String text) {
   if (digits.isEmpty) return 0;
   return double.parse(digits);
 }
+
+/// F7: terpakai dibanding alokasi. Alokasi 0 tidak pernah membagi nol.
+double allocationRatio(double spent, double allocation) {
+  if (allocation <= 0) return 0;
+  final ratio = spent / allocation;
+  return ratio.clamp(0, 1).toDouble();
+}
+
+/// Label yang selalu menyebut terpakai + alokasi + persen. Kategori dengan
+/// belanja 0 tampil "Rp 0", bukan kosong; alokasi 0 tidak menghasilkan NaN.
+String allocationSpendLabel(double spent, double allocation) {
+  final spentText = formatRupiah(spent);
+  if (allocation <= 0) {
+    return 'Terpakai $spentText — belum ada alokasi';
+  }
+  final pct = (spent / allocation * 100).round();
+  return 'Terpakai $spentText dari ${formatRupiah(allocation)} ($pct%)';
+}
