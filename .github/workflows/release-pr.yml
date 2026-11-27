@@ -3,6 +3,9 @@ name: release-pr
 # Setiap branch (selain main) yang menaikkan nilai `version:` di pubspec.yaml
 # otomatis dibuatkan PR "release: vX.Y.Z+build" dan di-auto-merge (squash)
 # hanya bila check `ci` hijau.
+#
+# PR milik manusia tidak disentuh: auto-merge hanya dipasang pada PR yang
+# judulnya `release: v...` (PR yang dibuat workflow ini).
 
 on:
   push:
@@ -10,7 +13,7 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
 
 concurrency:
@@ -55,8 +58,13 @@ jobs:
         run: |
           set -euo pipefail
           TITLE="release: v$NEW"
-          PR=$(gh pr list --head "$BRANCH" --base main --state open --json number --jq '.[0].number // empty')
+          PR=$(gh pr list --head "$BRANCH" --base main --state open --json number,title --jq '.[0] | select(.title | startswith("release: v")) | .number')
           if [ -z "$PR" ]; then
+            OTHER=$(gh pr list --head "$BRANCH" --base main --state open --json number --jq '.[0].number // empty')
+            if [ -n "$OTHER" ]; then
+              echo "Sudah ada PR #$OTHER untuk branch ini yang bukan PR rilis otomatis — tidak diubah, tidak di-auto-merge."
+              exit 0
+            fi
             gh pr create --base main --head "$BRANCH" --title "$TITLE" --body "$(cat <<BODY
           PR otomatis dari branch \`$BRANCH\`.
 
@@ -64,10 +72,10 @@ jobs:
           - versi branch: \`$NEW\`
 
           Merge (squash) hanya berjalan bila check \`ci\` hijau. Setelah merge, workflow \`release\`
-          membuat tag annotated \`v${NEW%%+*}\` dan GitHub Release berisi APK signed.
+          membuat tag annotated + GitHub Release berisi APK signed.
           BODY
             )"
-            PR=$(gh pr list --head "$BRANCH" --base main --state open --json number --jq '.[0].number // empty')
+            PR=$(gh pr list --head "$BRANCH" --base main --state open --json number,title --jq '.[0] | select(.title | startswith("release: v")) | .number')
           fi
           if [ -z "$PR" ]; then echo "PR tidak terbentuk" >&2; exit 1; fi
           gh pr merge "$PR" --squash --auto
