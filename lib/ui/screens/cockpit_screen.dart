@@ -425,10 +425,15 @@ class _DemoBanner extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Card(
-      key: const Key('demo-banner'),
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
+    // Label aksesibilitas: penanda "data demo" harus terbaca pembaca layar,
+    // bukan hanya terlihat. Ini penanda kejujuran untuk pengguna keluarga.
+    return Semantics(
+      container: true,
+      label: _demoBannerLabel,
+      child: Card(
+        key: const Key('demo-banner'),
+        margin: const EdgeInsets.only(bottom: 12),
+        child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -452,6 +457,9 @@ class _DemoBanner extends ConsumerWidget {
                 onPressed: () async {
                   final db = ref.read(databaseProvider);
                   final created = await DevSeeder(db).resetDemo();
+                  // Reset membuat kategori baru (id baru) — cache kategori
+                  // lama wajib dibuang, kalau tidak alokasi kehilangan nama.
+                  ref.invalidate(categoriesProvider);
                   ref.refreshMoneyProviders();
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -465,7 +473,12 @@ class _DemoBanner extends ConsumerWidget {
             ),
           ],
         ),
+        ),
       ),
     );
   }
 }
+
+/// Satu sumber teks penanda demo (dipakai visual & pembaca layar).
+const String _demoBannerLabel =
+    'Mode demo. Data tersimpan di browser ini saja dan tidak tersinkron.';
