@@ -82,7 +82,12 @@ void main() {
   setUpAll(_loadFont);
 
   for (final (name, theme) in [('light', NyatetTheme.light())]) {
-    testWidgets('U1 gallery $name 360dp', (tester) async {
+    testWidgets(
+      'U1 gallery $name 360dp',
+      // Golden bergantung pada raster font OS; dihasilkan di macOS dan
+      // disimpan untuk screenshot PR. CI Linux tidak membandingkan piksel.
+      skip: Platform.isLinux,
+      (tester) async {
       tester.view.physicalSize = const Size(360 * 3, 760 * 3);
       tester.view.devicePixelRatio = 3;
       addTearDown(tester.view.reset);
@@ -90,10 +95,11 @@ void main() {
         MaterialApp(theme: theme, home: const _U1Gallery()),
       );
       await tester.pumpAndSettle();
-      await expectLater(
-        find.byType(_U1Gallery),
-        matchesGoldenFile('goldens/u1_$name.png'),
-      );
-    });
+        await expectLater(
+          find.byType(_U1Gallery),
+          matchesGoldenFile('goldens/u1_$name.png'),
+        );
+      },
+    );
   }
 }
