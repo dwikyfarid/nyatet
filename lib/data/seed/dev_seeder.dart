@@ -68,7 +68,7 @@ class DevSeeder {
       String? note,
       String? goalId,
     }) {
-      final at = DateTime(date.year, date.month, date.day, 9, 0).toUtc();
+      final at = DateTime(date.year, date.month, date.day, 7 + (date.day % 13), 15).toUtc();
       return TransactionsCompanion.insert(
         id: const Uuid().v4(),
         date: date,

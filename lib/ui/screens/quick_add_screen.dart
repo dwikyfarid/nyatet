@@ -6,6 +6,7 @@ import '../../data/database/app_database.dart';
 import '../../domain/transaction_service.dart';
 import '../format.dart';
 import '../providers.dart';
+import '../v2/date_field.dart';
 import '../widgets/category_selector.dart';
 
 /// L6a — Quick-add transaksi (D-18): satu layar, maks 5 field, default
@@ -117,21 +118,10 @@ class _QuickAddScreenState extends ConsumerState<QuickAddScreen> {
             error: (e, _) => Text('Kategori gagal dimuat: $e'),
           ),
           const SizedBox(height: 16),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.event),
-            title: const Text('Tanggal'),
-            subtitle: Text(formatTanggal(_date)),
-            trailing: const Icon(Icons.edit_outlined),
-            onTap: () async {
-              final picked = await showDatePicker(
-                context: context,
-                initialDate: _date,
-                firstDate: DateTime(2020),
-                lastDate: DateTime(2100),
-              );
-              if (picked != null) setState(() => _date = picked);
-            },
+          NyatetDateField(
+            label: 'Tanggal transaksi',
+            value: _date,
+            onPicked: (picked) => setState(() => _date = picked),
           ),
           if (session.isAdmin)
             DropdownButtonFormField<String>(

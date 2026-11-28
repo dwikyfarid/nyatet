@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 
 import 'data/sync/sync_scheduler.dart';
 import 'home_shell.dart';
+import 'ui/v2/tokens.dart';
 import 'ui/providers.dart';
 import 'ui/widgets/update_dialog.dart';
 
@@ -98,10 +99,7 @@ class _NyatetAppState extends ConsumerState<NyatetApp> {
       title: 'Nyatet',
       navigatorKey: _navigatorKey,
       scaffoldMessengerKey: _messengerKey,
-      theme: ThemeData(
-        colorSchemeSeed: const Color(0xFF1B5FB0),
-        useMaterial3: true,
-      ),
+      theme: NyatetTheme.light(),
       home: const _Shell(),
     );
   }

@@ -8,6 +8,8 @@ import '../../domain/report_service.dart';
 import '../format.dart';
 import '../../home_shell.dart';
 import '../providers.dart';
+import '../v2/date_field.dart';
+import '../v2/number_source_sheet.dart';
 import 'draft_queue_screen.dart';
 import 'settings_screen.dart';
 import 'drilldown_screen.dart';
@@ -30,10 +32,13 @@ class CockpitScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Nyatet'),
         actions: [
-          ActionChip(
-            avatar: const Icon(Icons.calendar_month, size: 18),
-            label: Text(monthLabel(month)),
-            onPressed: () => _pickMonth(context, ref),
+          NyatetDateField(
+            label: 'Bulan',
+            value: month,
+            monthOnly: true,
+            onPicked: (picked) =>
+                ref.read(selectedMonthProvider.notifier).state =
+                    ReportService.monthKey(picked),
           ),
           IconButton(
             tooltip: 'Pengaturan',
@@ -55,14 +60,15 @@ class CockpitScreen extends ConsumerWidget {
           ref.invalidate(allocationRowsProvider);
         },
         child: ListView(
-          // 88 = tinggi FAB (56) + margin (16) + 16: cukup agar kartu terakhir
-          // tidak tertutup FAB, tanpa menambah tinggi isi sampai perlu digulir.
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
+          // 72 = tinggi FAB (56) + margin (16): cukup agar kartu terakhir tidak
+          // tertutup FAB; 88 dulu membuat isi beranda melewati satu layar
+          // setelah pemilih bulan memakai target ketuk 48dp (F8/D-18).
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 72),
           children: [
             summary.when(
               loading: () => const _SkeletonCard(),
               error: (e, _) => _ErrorBanner(message: '$e'),
-              data: (s) => _BalanceCard(summary: s, month: month),
+              data: (s) => _BalanceTap(summary: s, month: month),
             ),
             const SizedBox(height: 12),
             allocations.when(
@@ -99,19 +105,6 @@ class CockpitScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _pickMonth(BuildContext context, WidgetRef ref) async {
-    final current = DateTime.parse('${ref.read(selectedMonthProvider)}-01');
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: current,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2100),
-      helpText: 'Pilih bulan',
-    );
-    if (picked != null) {
-      ref.read(selectedMonthProvider.notifier).state = ReportService.monthKey(picked);
-    }
-  }
 }
 
 String monthLabel(DateTime month) {
@@ -416,4 +409,63 @@ class _ErrorBanner extends StatelessWidget {
       ),
     );
   }
+}
+
+
+/// U1: hero/tile angka membuka sheet asal-usul; tekan lama = lompat ke tempat
+/// angka itu diatur (di sini: tab Alokasi).
+class _BalanceTap extends ConsumerWidget {
+  const _BalanceTap({required this.summary, required this.month});
+
+  final CashSummary summary;
+  final DateTime month;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return GestureDetector(
+      onTap: () async {
+        final service = ref.read(reportServiceProvider);
+        final policy = ref.read(accessPolicyProvider);
+        final rows = await service.listBasket(policy, month, Basket.terpakai);
+        if (!context.mounted) return;
+        await showNumberSourceSheet(
+          context,
+          NumberSourceData(
+            title: 'Sisa kas',
+            periodLabel: _monthShort(month),
+            value: summary.sisaKas,
+            formulaLines: [
+              ('Masuk', summary.masuk),
+              ('Terpakai', -summary.terpakai),
+              ('Disisihkan', -summary.disisihkan),
+            ],
+            count: rows.length,
+            rangeLabel: _range(month),
+            topRows: [
+              for (final t in rows.take(5))
+                (t.merchant ?? t.note ?? 'Transaksi', t.amount),
+            ],
+            onOpenTransactions: () =>
+                ref.read(homeTabProvider.notifier).state = 1,
+          ),
+        );
+      },
+      onLongPress: () => ref.read(homeTabProvider.notifier).state = 2,
+      child: _BalanceCard(summary: summary, month: month),
+    );
+  }
+}
+
+String _monthShort(DateTime d) {
+  const months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+    'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des',
+  ];
+  return '${months[d.month - 1]} ${d.year}';
+}
+
+String _range(DateTime d) {
+  final start = DateTime(d.year, d.month);
+  final end = DateTime(d.year, d.month + 1, 0);
+  return '${start.day} ${_monthShort(start)} – ${end.day} ${_monthShort(end)}';
 }
