@@ -33,6 +33,8 @@ class TransactionRepository {
     final now = DateTime.now().toUtc();
 
     await _db.transaction(() async {
+      // F18: nomor dibuat sekali di sini, tidak pernah diubah saat edit.
+      final txnNo = await _db.nextTxnNumber(date);
       await _db.into(_db.transactions).insert(
             TransactionsCompanion.insert(
               id: id,
@@ -48,6 +50,7 @@ class TransactionRepository {
               receiptUrl: Value(receiptUrl),
               rawText: Value(rawText),
               refNo: Value(refNo),
+              txnNo: Value(txnNo),
               goalId: Value(goalId),
               createdAt: now,
               updatedAt: now,

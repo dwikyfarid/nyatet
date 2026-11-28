@@ -28,6 +28,11 @@ Future<void> showTransactionDetail(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            SelectableText(
+              'No. transaksi ${txn.txnNo ?? '-'}',
+              style: Theme.of(ctx).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 4),
             Text(
               txn.merchant ?? labelTipe(txn.type),
               style: Theme.of(ctx).textTheme.titleLarge,

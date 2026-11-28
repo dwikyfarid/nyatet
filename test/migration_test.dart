@@ -309,4 +309,64 @@ void main() {
         .then((r) => r.map((x) => x.read<String>('name')).toSet());
     expect(columns, contains('ref_no'));
   });
+
+  test('F18: upgrade v5 → v6 mengisi nomor transaksi untuk baris lama',
+      () async {
+    final file = File('${dir.path}/v5.sqlite');
+    final db = raw.sqlite3.open(file.path);
+    db.execute('''
+      CREATE TABLE transactions (
+        id TEXT NOT NULL, date INTEGER NOT NULL, type TEXT NOT NULL,
+        amount REAL NOT NULL, category_id TEXT NULL,
+        account TEXT NOT NULL DEFAULT '', merchant TEXT NULL, note TEXT NULL,
+        member_email TEXT NOT NULL, source TEXT NOT NULL, goal_id TEXT NULL,
+        receipt_url TEXT NULL, raw_text TEXT NULL, ref_no TEXT NULL,
+        created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
+        is_deleted INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (id)
+      );
+      CREATE TABLE budgets (
+        id TEXT NOT NULL, month TEXT NOT NULL, category_id TEXT NOT NULL,
+        type TEXT NOT NULL DEFAULT 'budget',
+        limit_amount REAL NOT NULL DEFAULT 0,
+        allocated_amount REAL NOT NULL DEFAULT 0,
+        updated_at INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (id)
+      );
+    ''');
+    // Dua transaksi di hari yang sama, satu di hari berikutnya.
+    final day1 = DateTime.utc(2026, 11, 27, 1).millisecondsSinceEpoch ~/ 1000;
+    final day1b = DateTime.utc(2026, 11, 27, 2).millisecondsSinceEpoch ~/ 1000;
+    final day2 = DateTime.utc(2026, 11, 28, 1).millisecondsSinceEpoch ~/ 1000;
+    db.execute(
+      "INSERT INTO transactions (id,date,type,amount,member_email,source,ref_no,created_at,updated_at) "
+      "VALUES ('t-b',$day1b,'out',2000,'bapak@example.com','manual',NULL,$day1b,$day1b)",
+    );
+    db.execute(
+      "INSERT INTO transactions (id,date,type,amount,member_email,source,ref_no,created_at,updated_at) "
+      "VALUES ('t-a',$day1,'out',1000,'bapak@example.com','manual','BANK-1',$day1,$day1)",
+    );
+    db.execute(
+      "INSERT INTO transactions (id,date,type,amount,member_email,source,ref_no,created_at,updated_at) "
+      "VALUES ('t-c',$day2,'out',3000,'bapak@example.com','manual',NULL,$day2,$day2)",
+    );
+    db.execute('PRAGMA user_version = 5');
+    db.close();
+
+    final app = AppDatabase(NativeDatabase(File(file.path)));
+    addTearDown(app.close);
+
+    final rows = await app.select(app.transactions).get();
+    expect(rows, hasLength(3), reason: 'baris lama tidak boleh hilang');
+    final byId = {for (final t in rows) t.id: t};
+    // Urut tanggal lalu id: t-a=001, t-b=002, t-c=001 hari berikutnya.
+    expect(byId['t-a']!.txnNo, 'NYT-261127-001');
+    expect(byId['t-b']!.txnNo, 'NYT-261127-002');
+    expect(byId['t-c']!.txnNo, 'NYT-261128-001');
+    // Nomor referensi bank tidak pernah ditimpa.
+    expect(byId['t-a']!.refNo, 'BANK-1');
+    expect(byId['t-b']!.refNo, isNull);
+    // Unik.
+    expect(rows.map((t) => t.txnNo).toSet(), hasLength(3));
+  });
 }

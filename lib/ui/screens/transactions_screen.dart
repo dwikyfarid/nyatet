@@ -126,8 +126,11 @@ class _TransactionTile extends ConsumerWidget {
     return ListTile(
       title: Text(txn.merchant ?? txn.note ?? labelTipe(txn.type)),
       subtitle: Text(
+        '${txn.txnNo ?? ''}'
+        '${txn.txnNo == null ? '' : ' · '}'
         '${formatTanggalWaktu(txn.date)} • ${labelTipe(txn.type)}'
         ' • ${txn.memberEmail}',
+        style: const TextStyle(fontSize: 12),
       ),
       trailing: Text(
         '$arrow $sign${formatRupiah(txn.amount)}',

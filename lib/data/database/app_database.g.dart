@@ -87,6 +87,11 @@ class $TransactionsTable extends Transactions
   late final GeneratedColumn<String> refNo = GeneratedColumn<String>(
       'ref_no', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _txnNoMeta = const VerificationMeta('txnNo');
+  @override
+  late final GeneratedColumn<String> txnNo = GeneratedColumn<String>(
+      'txn_no', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _createdAtMeta =
       const VerificationMeta('createdAt');
   @override
@@ -125,6 +130,7 @@ class $TransactionsTable extends Transactions
         receiptUrl,
         rawText,
         refNo,
+        txnNo,
         createdAt,
         updatedAt,
         isDeleted
@@ -212,6 +218,10 @@ class $TransactionsTable extends Transactions
       context.handle(
           _refNoMeta, refNo.isAcceptableOrUnknown(data['ref_no']!, _refNoMeta));
     }
+    if (data.containsKey('txn_no')) {
+      context.handle(
+          _txnNoMeta, txnNo.isAcceptableOrUnknown(data['txn_no']!, _txnNoMeta));
+    }
     if (data.containsKey('created_at')) {
       context.handle(_createdAtMeta,
           createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
@@ -265,6 +275,8 @@ class $TransactionsTable extends Transactions
           .read(DriftSqlType.string, data['${effectivePrefix}raw_text']),
       refNo: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}ref_no']),
+      txnNo: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}txn_no']),
       createdAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
       updatedAt: attachedDatabase.typeMapping
@@ -300,6 +312,11 @@ class Transaction extends DataClass implements Insertable<Transaction> {
   /// F14/D-49: nomor referensi dari notifikasi/struk (maks 64), nullable.
   /// Baris lama tetap NULL — bukan '' atau '-' (tidak ada nilai karangan).
   final String? refNo;
+
+  /// F18: nomor transaksi buatan aplikasi `NYT-YYMMDD-NNN`, selalu ada,
+  /// dibuat sekali dan tidak berubah saat diedit. Nullable hanya agar
+  /// ALTER TABLE aman; backfill + pembuatan selalu mengisinya.
+  final String? txnNo;
   final DateTime createdAt;
   final DateTime updatedAt;
   final bool isDeleted;
@@ -318,6 +335,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       this.receiptUrl,
       this.rawText,
       this.refNo,
+      this.txnNo,
       required this.createdAt,
       required this.updatedAt,
       required this.isDeleted});
@@ -352,6 +370,9 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     if (!nullToAbsent || refNo != null) {
       map['ref_no'] = Variable<String>(refNo);
     }
+    if (!nullToAbsent || txnNo != null) {
+      map['txn_no'] = Variable<String>(txnNo);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     map['is_deleted'] = Variable<bool>(isDeleted);
@@ -384,6 +405,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           : Value(rawText),
       refNo:
           refNo == null && nullToAbsent ? const Value.absent() : Value(refNo),
+      txnNo:
+          txnNo == null && nullToAbsent ? const Value.absent() : Value(txnNo),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
       isDeleted: Value(isDeleted),
@@ -408,6 +431,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       receiptUrl: serializer.fromJson<String?>(json['receiptUrl']),
       rawText: serializer.fromJson<String?>(json['rawText']),
       refNo: serializer.fromJson<String?>(json['refNo']),
+      txnNo: serializer.fromJson<String?>(json['txnNo']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
@@ -431,6 +455,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       'receiptUrl': serializer.toJson<String?>(receiptUrl),
       'rawText': serializer.toJson<String?>(rawText),
       'refNo': serializer.toJson<String?>(refNo),
+      'txnNo': serializer.toJson<String?>(txnNo),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'isDeleted': serializer.toJson<bool>(isDeleted),
@@ -452,6 +477,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           Value<String?> receiptUrl = const Value.absent(),
           Value<String?> rawText = const Value.absent(),
           Value<String?> refNo = const Value.absent(),
+          Value<String?> txnNo = const Value.absent(),
           DateTime? createdAt,
           DateTime? updatedAt,
           bool? isDeleted}) =>
@@ -470,6 +496,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
         receiptUrl: receiptUrl.present ? receiptUrl.value : this.receiptUrl,
         rawText: rawText.present ? rawText.value : this.rawText,
         refNo: refNo.present ? refNo.value : this.refNo,
+        txnNo: txnNo.present ? txnNo.value : this.txnNo,
         createdAt: createdAt ?? this.createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
         isDeleted: isDeleted ?? this.isDeleted,
@@ -493,6 +520,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           data.receiptUrl.present ? data.receiptUrl.value : this.receiptUrl,
       rawText: data.rawText.present ? data.rawText.value : this.rawText,
       refNo: data.refNo.present ? data.refNo.value : this.refNo,
+      txnNo: data.txnNo.present ? data.txnNo.value : this.txnNo,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
@@ -516,6 +544,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           ..write('receiptUrl: $receiptUrl, ')
           ..write('rawText: $rawText, ')
           ..write('refNo: $refNo, ')
+          ..write('txnNo: $txnNo, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('isDeleted: $isDeleted')
@@ -539,6 +568,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       receiptUrl,
       rawText,
       refNo,
+      txnNo,
       createdAt,
       updatedAt,
       isDeleted);
@@ -560,6 +590,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           other.receiptUrl == this.receiptUrl &&
           other.rawText == this.rawText &&
           other.refNo == this.refNo &&
+          other.txnNo == this.txnNo &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
           other.isDeleted == this.isDeleted);
@@ -580,6 +611,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
   final Value<String?> receiptUrl;
   final Value<String?> rawText;
   final Value<String?> refNo;
+  final Value<String?> txnNo;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<bool> isDeleted;
@@ -599,6 +631,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.receiptUrl = const Value.absent(),
     this.rawText = const Value.absent(),
     this.refNo = const Value.absent(),
+    this.txnNo = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.isDeleted = const Value.absent(),
@@ -619,6 +652,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.receiptUrl = const Value.absent(),
     this.rawText = const Value.absent(),
     this.refNo = const Value.absent(),
+    this.txnNo = const Value.absent(),
     required DateTime createdAt,
     required DateTime updatedAt,
     this.isDeleted = const Value.absent(),
@@ -646,6 +680,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     Expression<String>? receiptUrl,
     Expression<String>? rawText,
     Expression<String>? refNo,
+    Expression<String>? txnNo,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<bool>? isDeleted,
@@ -666,6 +701,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       if (receiptUrl != null) 'receipt_url': receiptUrl,
       if (rawText != null) 'raw_text': rawText,
       if (refNo != null) 'ref_no': refNo,
+      if (txnNo != null) 'txn_no': txnNo,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (isDeleted != null) 'is_deleted': isDeleted,
@@ -688,6 +724,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       Value<String?>? receiptUrl,
       Value<String?>? rawText,
       Value<String?>? refNo,
+      Value<String?>? txnNo,
       Value<DateTime>? createdAt,
       Value<DateTime>? updatedAt,
       Value<bool>? isDeleted,
@@ -707,6 +744,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       receiptUrl: receiptUrl ?? this.receiptUrl,
       rawText: rawText ?? this.rawText,
       refNo: refNo ?? this.refNo,
+      txnNo: txnNo ?? this.txnNo,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       isDeleted: isDeleted ?? this.isDeleted,
@@ -759,6 +797,9 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     if (refNo.present) {
       map['ref_no'] = Variable<String>(refNo.value);
     }
+    if (txnNo.present) {
+      map['txn_no'] = Variable<String>(txnNo.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -791,6 +832,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
           ..write('receiptUrl: $receiptUrl, ')
           ..write('rawText: $rawText, ')
           ..write('refNo: $refNo, ')
+          ..write('txnNo: $txnNo, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('isDeleted: $isDeleted, ')
@@ -4567,6 +4609,7 @@ typedef $$TransactionsTableCreateCompanionBuilder = TransactionsCompanion
   Value<String?> receiptUrl,
   Value<String?> rawText,
   Value<String?> refNo,
+  Value<String?> txnNo,
   required DateTime createdAt,
   required DateTime updatedAt,
   Value<bool> isDeleted,
@@ -4588,6 +4631,7 @@ typedef $$TransactionsTableUpdateCompanionBuilder = TransactionsCompanion
   Value<String?> receiptUrl,
   Value<String?> rawText,
   Value<String?> refNo,
+  Value<String?> txnNo,
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
   Value<bool> isDeleted,
@@ -4644,6 +4688,9 @@ class $$TransactionsTableFilterComposer
 
   ColumnFilters<String> get refNo => $composableBuilder(
       column: $table.refNo, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get txnNo => $composableBuilder(
+      column: $table.txnNo, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnFilters(column));
@@ -4706,6 +4753,9 @@ class $$TransactionsTableOrderingComposer
   ColumnOrderings<String> get refNo => $composableBuilder(
       column: $table.refNo, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get txnNo => $composableBuilder(
+      column: $table.txnNo, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnOrderings(column));
 
@@ -4767,6 +4817,9 @@ class $$TransactionsTableAnnotationComposer
   GeneratedColumn<String> get refNo =>
       $composableBuilder(column: $table.refNo, builder: (column) => column);
 
+  GeneratedColumn<String> get txnNo =>
+      $composableBuilder(column: $table.txnNo, builder: (column) => column);
+
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
@@ -4817,6 +4870,7 @@ class $$TransactionsTableTableManager extends RootTableManager<
             Value<String?> receiptUrl = const Value.absent(),
             Value<String?> rawText = const Value.absent(),
             Value<String?> refNo = const Value.absent(),
+            Value<String?> txnNo = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
             Value<bool> isDeleted = const Value.absent(),
@@ -4837,6 +4891,7 @@ class $$TransactionsTableTableManager extends RootTableManager<
             receiptUrl: receiptUrl,
             rawText: rawText,
             refNo: refNo,
+            txnNo: txnNo,
             createdAt: createdAt,
             updatedAt: updatedAt,
             isDeleted: isDeleted,
@@ -4857,6 +4912,7 @@ class $$TransactionsTableTableManager extends RootTableManager<
             Value<String?> receiptUrl = const Value.absent(),
             Value<String?> rawText = const Value.absent(),
             Value<String?> refNo = const Value.absent(),
+            Value<String?> txnNo = const Value.absent(),
             required DateTime createdAt,
             required DateTime updatedAt,
             Value<bool> isDeleted = const Value.absent(),
@@ -4877,6 +4933,7 @@ class $$TransactionsTableTableManager extends RootTableManager<
             receiptUrl: receiptUrl,
             rawText: rawText,
             refNo: refNo,
+            txnNo: txnNo,
             createdAt: createdAt,
             updatedAt: updatedAt,
             isDeleted: isDeleted,

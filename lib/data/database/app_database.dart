@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart';
+
+import '../../domain/txn_number.dart';
 import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -56,6 +58,11 @@ class Transactions extends Table {
   /// F14/D-49: nomor referensi dari notifikasi/struk (maks 64), nullable.
   /// Baris lama tetap NULL — bukan '' atau '-' (tidak ada nilai karangan).
   TextColumn get refNo => text().nullable()();
+
+  /// F18: nomor transaksi buatan aplikasi `NYT-YYMMDD-NNN`, selalu ada,
+  /// dibuat sekali dan tidak berubah saat diedit. Nullable hanya agar
+  /// ALTER TABLE aman; backfill + pembuatan selalu mengisinya.
+  TextColumn get txnNo => text().nullable()();
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
@@ -252,7 +259,7 @@ class AppDatabase extends _$AppDatabase {
   factory AppDatabase.memory() => AppDatabase(NativeDatabase.memory());
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -307,6 +314,10 @@ class AppDatabase extends _$AppDatabase {
           // F14: kolom referensi transaksi. Nullable → aman untuk ALTER TABLE
           // dan baris lama tidak diisi nilai palsu.
           if (from < 5) await m.addColumn(transactions, transactions.refNo);
+          if (from < 6) {
+            await m.addColumn(transactions, transactions.txnNo);
+            await _backfillTxnNumbers();
+          }
         },
       );
 
@@ -341,6 +352,48 @@ class AppDatabase extends _$AppDatabase {
       FROM goals_old
     ''');
     await customStatement('DROP TABLE goals_old');
+  }
+
+  /// F18: nomor transaksi `NYT-YYMMDD-NNN`, urutan harian per keluarga.
+  /// Dipakai saat membuat transaksi dan saat backfill baris lama (urut tanggal
+  /// lalu id). Nomor yang sudah ada tidak pernah diubah.
+  Future<void> _backfillTxnNumbers() async {
+    final rows = await customSelect(
+      'SELECT id, date FROM transactions WHERE txn_no IS NULL '
+      'ORDER BY date ASC, id ASC',
+    ).get();
+    final counters = <String, int>{};
+    for (final row in rows) {
+      final seconds = row.read<int>('date');
+      final local =
+          DateTime.fromMillisecondsSinceEpoch(seconds * 1000, isUtc: true)
+              .toLocal();
+      final key = txnNumberDayKey(local);
+      final next = (counters[key] ?? 0) + 1;
+      counters[key] = next;
+      await customStatement(
+        'UPDATE transactions SET txn_no = ? WHERE id = ?',
+        [formatTxnNumber(local, next), row.read<String>('id')],
+      );
+    }
+  }
+
+  /// F18: lengkapi nomor untuk baris lama/kasus tepi (idempoten).
+  Future<void> ensureTxnNumbers() => _backfillTxnNumbers();
+
+  /// Nomor berikutnya untuk tanggal tertentu (dipanggil di dalam transaksi DB).
+  Future<String> nextTxnNumber(DateTime date) async {
+    final key = txnNumberDayKey(date);
+    final rows = await customSelect(
+      'SELECT txn_no FROM transactions WHERE txn_no LIKE ?',
+      variables: [Variable.withString('NYT-$key-%')],
+    ).get();
+    var max = 0;
+    for (final r in rows) {
+      final suffix = int.tryParse((r.read<String?>('txn_no') ?? '').split('-').last);
+      if (suffix != null && suffix > max) max = suffix;
+    }
+    return formatTxnNumber(date, max + 1);
   }
 
   static const String _keyLastPullAt = 'last_pull_at';
