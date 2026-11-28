@@ -63,7 +63,7 @@ jobs:
         run: |
           set -euo pipefail
           TITLE="release: v$NEW"
-          PR=$(gh pr list --head "$BRANCH" --base main --state open --json number,title --jq '.[0] | select(.title | startswith("release: v")) | .number')
+          PR=$(gh pr list --head "$BRANCH" --base main --state open --json number,title --jq '[.[] | select((.title // "") | startswith("release: v"))][0].number // empty')
           if [ -z "$PR" ]; then
             OTHER=$(gh pr list --head "$BRANCH" --base main --state open --json number --jq '.[0].number // empty')
             if [ -n "$OTHER" ]; then
@@ -80,7 +80,7 @@ jobs:
           membuat tag annotated + GitHub Release berisi APK signed.
           BODY
             )"
-            PR=$(gh pr list --head "$BRANCH" --base main --state open --json number,title --jq '.[0] | select(.title | startswith("release: v")) | .number')
+            PR=$(gh pr list --head "$BRANCH" --base main --state open --json number,title --jq '[.[] | select((.title // "") | startswith("release: v"))][0].number // empty')
           fi
           if [ -z "$PR" ]; then echo "PR tidak terbentuk" >&2; exit 1; fi
           gh pr merge "$PR" --squash --auto
